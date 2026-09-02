@@ -1,0 +1,968 @@
+openapi: 3.1.0
+info:
+  title: Central de Serviços API
+  version: 1.0.0
+  description: API REST da Central de Serviços v1. Datas são UTC em ISO-8601.
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SERVICE_DESK_SESSION
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+  responses:
+    BadRequest:
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+    Unauthorized:
+      description: Sessão ausente, inválida ou expirada.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+    Forbidden:
+      description: Perfil ou escopo insuficiente.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+    Conflict:
+      description: Conflito de unicidade ou versão otimista.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+    Unprocessable:
+      description: Regra de negócio não satisfeita.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+  schemas:
+    Role:
+      type: string
+      enum: [REQUESTER, AGENT, MANAGER, ADMIN]
+    TicketStatus:
+      type: string
+      enum: [OPEN, TRIAGE, IN_PROGRESS, WAITING_REQUESTER, RESOLVED, CLOSED, CANCELED]
+    Priority:
+      type: string
+      enum: [LOW, NORMAL, HIGH, CRITICAL]
+    CommentVisibility:
+      type: string
+      enum: [PUBLIC, INTERNAL]
+    NotificationType:
+      type: string
+      enum: [ASSIGNED, PUBLIC_COMMENT, MENTION, STATUS_CHANGED, DEADLINE_SOON, OVERDUE]
+    AttachmentScanStatus:
+      type: string
+      enum: [CLEAN, INFECTED, ERROR]
+    Theme:
+      type: object
+      required: [primaryColor, accentColor, sidebarColor, canvasColor]
+      properties:
+        primaryColor: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+        accentColor: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+        sidebarColor: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+        canvasColor: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+    PublicSettings:
+      type: object
+      required: [institutionName, timezoneName, theme, version, updatedAt]
+      properties:
+        institutionName: { type: string }
+        supportEmail: { type: [string, "null"], format: email }
+        supportPhone: { type: [string, "null"] }
+        timezoneName: { type: string }
+        theme: { $ref: "#/components/schemas/Theme" }
+        loginBackgroundUrl: { type: [string, "null"] }
+        version: { type: integer, format: int64 }
+        updatedAt: { type: string, format: date-time }
+    SmtpSettings:
+      type: object
+      required: [tls, passwordConfigured]
+      properties:
+        host: { type: [string, "null"] }
+        port: { type: [integer, "null"] }
+        tls: { type: boolean }
+        fromName: { type: [string, "null"] }
+        fromAddress: { type: [string, "null"], format: email }
+        username: { type: [string, "null"] }
+        passwordConfigured: { type: boolean }
+    AdminSettings:
+      type: object
+      required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, deadlineWarningHours, theme, loginBackgroundConfigured, smtp, version, updatedAt]
+      properties:
+        institutionName: { type: string }
+        supportEmail: { type: [string, "null"], format: email }
+        supportPhone: { type: [string, "null"] }
+        timezoneName: { type: string }
+        attachmentLimitMb: { type: integer }
+        reopenDays: { type: integer }
+        deadlineWarningHours: { type: integer }
+        theme: { $ref: "#/components/schemas/Theme" }
+        loginBackgroundConfigured: { type: boolean }
+        smtp: { $ref: "#/components/schemas/SmtpSettings" }
+        version: { type: integer, format: int64 }
+        updatedAt: { type: string, format: date-time }
+    Me:
+      type: object
+      required: [id, email, displayName, roles, passwordChangeRequired]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        roles:
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Role" }
+        passwordChangeRequired: { type: boolean }
+    User:
+      type: object
+      required: [id, email, displayName, roles, active, passwordChangeRequired, anonymized, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        roles:
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Role" }
+        active: { type: boolean }
+        passwordChangeRequired: { type: boolean }
+        anonymized: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    Assignee:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+    CreatedUser:
+      type: object
+      required: [user, temporaryPassword]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        temporaryPassword: { type: string, writeOnly: true }
+    Category:
+      type: object
+      required: [id, name, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    Attachment:
+      type: object
+      required: [id, ticketId, originalName, mediaType, fileSize, sha256, scanStatus, visibility, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: string, format: uuid }
+        commentId: { type: [string, "null"], format: uuid }
+        originalName: { type: string }
+        mediaType: { type: string }
+        fileSize: { type: integer, format: int64 }
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        scanStatus: { $ref: "#/components/schemas/AttachmentScanStatus" }
+        visibility: { $ref: "#/components/schemas/CommentVisibility" }
+        createdAt: { type: string, format: date-time }
+    TicketComment:
+      type: object
+      required: [id, authorId, body, visibility, createdAt, attachments]
+      properties:
+        id: { type: string, format: uuid }
+        authorId: { type: string, format: uuid }
+        authorName: { type: [string, "null"] }
+        body: { type: string }
+        visibility: { $ref: "#/components/schemas/CommentVisibility" }
+        createdAt: { type: string, format: date-time }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/Attachment" }
+    TicketSummary:
+      type: object
+      required: [id, publicNumber, subject, status, priority, requesterId, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        publicNumber: { type: string, example: SD-2026-000001 }
+        subject: { type: string }
+        status: { $ref: "#/components/schemas/TicketStatus" }
+        priority: { $ref: "#/components/schemas/Priority" }
+        requesterId: { type: string, format: uuid }
+        requesterName: { type: [string, "null"] }
+        assigneeId: { type: [string, "null"], format: uuid }
+        assigneeName: { type: [string, "null"] }
+        categoryId: { type: [string, "null"], format: uuid }
+        categoryName: { type: [string, "null"] }
+        dueAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    TicketDetail:
+      allOf:
+        - { $ref: "#/components/schemas/TicketSummary" }
+        - type: object
+          required: [description, attachments, comments]
+          properties:
+            description: { type: string }
+            attachments:
+              type: array
+              items: { $ref: "#/components/schemas/Attachment" }
+            comments:
+              type: array
+              items: { $ref: "#/components/schemas/TicketComment" }
+    Notification:
+      type: object
+      required: [id, type, title, message, read, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: [string, "null"], format: uuid }
+        type: { $ref: "#/components/schemas/NotificationType" }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    AuditEvent:
+      type: object
+      required: [id, action, entityType, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        actorId: { type: [string, "null"], format: uuid }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: [string, "null"] }
+        details: { type: [string, "null"] }
+        correlationId: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+    TicketPage:
+      type: object
+      required: [content, number, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: "#/components/schemas/TicketSummary" } }
+        number: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    UserPage:
+      type: object
+      required: [content, number, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: "#/components/schemas/User" } }
+        number: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    NotificationPage:
+      type: object
+      required: [content, number, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: "#/components/schemas/Notification" } }
+        number: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    AuditPage:
+      type: object
+      required: [content, number, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }
+        number: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    ProblemDetail:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+        correlationId: { type: [string, "null"] }
+        errors: { type: object, additionalProperties: { type: string } }
+
+paths:
+  /public/settings:
+    get:
+      security: []
+      summary: Obtém tema e dados públicos do login.
+      responses:
+        "200":
+          description: Configuração pública.
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicSettings" }
+  /public/settings/login-background:
+    get:
+      security: []
+      summary: Obtém a imagem configurada para o login.
+      responses:
+        "200":
+          description: Imagem JPG, PNG ou WebP.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { description: Imagem não configurada. }
+  /auth/csrf:
+    get:
+      security: []
+      summary: Emite o token CSRF e seu cookie correspondente.
+      responses:
+        "200":
+          description: Token emitido.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [headerName, token]
+                properties:
+                  headerName: { type: string }
+                  token: { type: string }
+  /auth/session:
+    post:
+      security: [{ csrfHeader: [] }]
+      summary: Cria uma sessão server-side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Sessão criada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { description: Limite de tentativas excedido. }
+    delete:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Encerra a sessão atual.
+      responses:
+        "204": { description: Sessão encerrada. }
+  /auth/me:
+    get:
+      summary: Obtém o usuário autenticado.
+      responses:
+        "200":
+          description: Sessão atual.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/password/change:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Troca a senha do usuário autenticado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 12, maxLength: 128 }
+      responses:
+        "204": { description: Senha alterada. }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /auth/password/forgot:
+    post:
+      security: [{ csrfHeader: [] }]
+      summary: Solicita recuperação sem revelar se a conta existe.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "204": { description: Solicitação processada. }
+  /auth/password/reset:
+    post:
+      security: [{ csrfHeader: [] }]
+      summary: Redefine a senha com token de uso único.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 12, maxLength: 128 }
+      responses:
+        "204": { description: Senha redefinida. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /categories:
+    get:
+      summary: Lista categorias ativas.
+      responses:
+        "200":
+          description: Categorias ativas.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Category" } }
+  /users/assignees:
+    get:
+      summary: Lista responsáveis ativos para a fila.
+      responses:
+        "200":
+          description: Diretório operacional mínimo.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Assignee" } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /tickets:
+    get:
+      summary: Lista solicitações conforme o escopo do usuário.
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+        - { name: sort, in: query, schema: { type: string, example: "updatedAt,desc" } }
+        - { name: number, in: query, schema: { type: string } }
+        - { name: subject, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/TicketStatus" } }
+        - { name: priority, in: query, schema: { $ref: "#/components/schemas/Priority" } }
+        - { name: categoryId, in: query, schema: { type: string, format: uuid } }
+        - { name: assigneeId, in: query, schema: { type: string, format: uuid } }
+        - { name: dueAfter, in: query, schema: { type: string, format: date-time } }
+        - { name: dueBefore, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Página estável de solicitações.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketPage" }
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Abre uma solicitação com até cinco anexos.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [metadata]
+              properties:
+                metadata:
+                  type: object
+                  required: [subject, description]
+                  properties:
+                    subject: { type: string, maxLength: 160 }
+                    description: { type: string, maxLength: 8000 }
+                    categoryId: { type: [string, "null"], format: uuid }
+                files: { type: array, maxItems: 5, items: { type: string, format: binary } }
+      responses:
+        "200":
+          description: Solicitação criada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /tickets/{id}:
+    get:
+      summary: Detalha uma solicitação respeitando ownership e notas internas.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Detalhe da solicitação.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Solicitação não encontrada. }
+  /tickets/{id}/assignment:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Assume ou redistribui uma solicitação.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assigneeId, version]
+              properties:
+                assigneeId: { type: string, format: uuid }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Responsável atualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /tickets/{id}/classification:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Define categoria, prioridade e prazo.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categoryId, version]
+              properties:
+                categoryId: { type: string, format: uuid }
+                priority: { $ref: "#/components/schemas/Priority" }
+                dueAt: { type: [string, "null"], format: date-time }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Classificação atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /tickets/{id}/priority:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Atualiza somente a prioridade.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority, version]
+              properties:
+                priority: { $ref: "#/components/schemas/Priority" }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Prioridade atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /tickets/{id}/deadline:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Define ou remove o prazo manual.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                dueAt: { type: [string, "null"], format: date-time }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Prazo atualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /tickets/{id}/status:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Transiciona o status usando versão otimista.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, version]
+              properties:
+                status: { $ref: "#/components/schemas/TicketStatus" }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Status atualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /tickets/{id}/comments:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Adiciona comentário público ou nota interna imutável.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [metadata]
+              properties:
+                metadata:
+                  type: object
+                  required: [body, visibility]
+                  properties:
+                    body: { type: string, maxLength: 4000 }
+                    visibility: { $ref: "#/components/schemas/CommentVisibility" }
+                files: { type: array, maxItems: 5, items: { type: string, format: binary } }
+      responses:
+        "200":
+          description: Comentário criado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketDetail" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /tickets/attachments/{id}:
+    get:
+      summary: Baixa um anexo após validar escopo e visibilidade.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Arquivo como download.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Anexo não encontrado. }
+  /notifications:
+    get:
+      summary: Lista notificações do usuário.
+      parameters: [{ $ref: "#/components/parameters/Page" }, { $ref: "#/components/parameters/Size" }]
+      responses:
+        "200":
+          description: Página de notificações.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPage" }
+  /notifications/unread-count:
+    get:
+      summary: Conta notificações não lidas.
+      responses:
+        "200":
+          description: Contagem atual.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count]
+                properties:
+                  count: { type: integer, format: int64 }
+  /notifications/{id}/read:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Marca uma notificação como lida.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "204": { description: Notificação marcada. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /notifications/read:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Marca todas as notificações como lidas.
+      responses:
+        "204": { description: Notificações marcadas. }
+  /admin/users:
+    get:
+      summary: Lista contas para administração.
+      parameters: [{ $ref: "#/components/parameters/Page" }, { $ref: "#/components/parameters/Size" }]
+      responses:
+        "200":
+          description: Página de usuários.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPage" }
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Cria uma conta e devolve a senha temporária uma única vez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, displayName, roles]
+              properties:
+                email: { type: string, format: email }
+                displayName: { type: string, maxLength: 120 }
+                roles: { type: array, minItems: 1, uniqueItems: true, items: { $ref: "#/components/schemas/Role" } }
+      responses:
+        "200":
+          description: Conta e senha temporária.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedUser" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /admin/users/{id}:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Atualiza nome, perfis e estado da conta.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, roles, active]
+              properties:
+                displayName: { type: string, maxLength: 120 }
+                roles: { type: array, minItems: 1, uniqueItems: true, items: { $ref: "#/components/schemas/Role" } }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Conta atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+  /admin/users/{id}/temporary-password:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Gera nova senha temporária de exibição única.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Senha temporária.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [temporaryPassword]
+                properties:
+                  temporaryPassword: { type: string, writeOnly: true }
+  /admin/users/{id}/anonymize:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Anonimiza e desativa uma conta.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "204": { description: Conta anonimizada. }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/categories:
+    get:
+      summary: Lista todas as categorias.
+      responses:
+        "200":
+          description: Categorias.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Category" } }
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Cria uma categoria ativa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 100 }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Categoria criada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Category" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /admin/categories/{id}:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Renomeia ou ativa/inativa uma categoria.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, active]
+              properties:
+                name: { type: string, maxLength: 100 }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Categoria atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Category" }
+  /admin/settings:
+    get:
+      summary: Obtém configurações administrativas sem retornar segredos.
+      responses:
+        "200":
+          description: Configurações administrativas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSettings" }
+  /admin/settings/general:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Atualiza dados gerais e políticas de chamados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, deadlineWarningHours, version]
+              properties:
+                institutionName: { type: string, maxLength: 160 }
+                supportEmail: { type: [string, "null"], format: email }
+                supportPhone: { type: [string, "null"], maxLength: 40 }
+                timezoneName: { type: string }
+                attachmentLimitMb: { type: integer, minimum: 1, maximum: 25 }
+                reopenDays: { type: integer, minimum: 1, maximum: 30 }
+                deadlineWarningHours: { type: integer, minimum: 1, maximum: 168 }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Configuração atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSettings" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/settings/theme/preview:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Valida contraste do tema sem publicar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Theme" }
+      responses:
+        "200":
+          description: Resultado de contraste.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [theme, warnings, valid]
+                properties:
+                  theme: { $ref: "#/components/schemas/Theme" }
+                  warnings: { type: array, items: { type: string } }
+                  valid: { type: boolean }
+  /admin/settings/theme:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Publica um tema aprovado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [theme, version]
+              properties:
+                theme: { $ref: "#/components/schemas/Theme" }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Tema publicado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSettings" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/settings/login-background:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Publica imagem de fundo validada e varrida.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Imagem publicada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSettings" }
+        "413": { description: Arquivo acima do limite. }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/settings/smtp:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Atualiza SMTP; senha vazia preserva o segredo existente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tls, version]
+              properties:
+                host: { type: [string, "null"] }
+                port: { type: [integer, "null"], minimum: 1, maximum: 65535 }
+                tls: { type: boolean }
+                fromName: { type: [string, "null"] }
+                fromAddress: { type: [string, "null"], format: email }
+                username: { type: [string, "null"] }
+                password: { type: [string, "null"], writeOnly: true }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: SMTP atualizado sem expor senha.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSettings" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/settings/smtp/test:
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Testa a conexão SMTP configurada.
+      responses:
+        "204": { description: Conexão validada. }
+        "502": { description: Falha ao conectar ao servidor SMTP. }
+  /admin/audit:
+    get:
+      summary: Lista eventos de auditoria do mais recente ao mais antigo.
+      parameters: [{ $ref: "#/components/parameters/Page" }, { $ref: "#/components/parameters/Size" }]
+      responses:
+        "200":
+          description: Página de auditoria.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPage" }
