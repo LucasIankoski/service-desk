@@ -1,0 +1,327 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-initial-schema
+      author: service-desk-team
+      changes:
+        - createTable:
+            tableName: user_account
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: email, type: varchar(254), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_user_email } }
+              - column: { name: display_name, type: varchar(120), constraints: { nullable: false } }
+              - column: { name: password_hash, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: active, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: password_change_required, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: anonymized, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - createTable:
+            tableName: user_role
+            columns:
+              - column: { name: user_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: role_name, type: varchar(32), constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: user_role
+            columnNames: user_id, role_name
+            constraintName: pk_user_role
+        - addForeignKeyConstraint:
+            baseTableName: user_role
+            baseColumnNames: user_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_role_user
+            onDelete: CASCADE
+        - createTable:
+            tableName: password_reset_token
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: user_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: token_hash, type: varchar(64), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_reset_hash } }
+              - column: { name: expires_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: used_at, type: timestamp }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: password_reset_token
+            baseColumnNames: user_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_reset_user
+            onDelete: CASCADE
+        - createIndex:
+            tableName: password_reset_token
+            indexName: ix_reset_expiry
+            columns:
+              - column: { name: expires_at }
+
+        - createTable:
+            tableName: category
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: name, type: varchar(100), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_category_name } }
+              - column: { name: active, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - createTable:
+            tableName: ticket_counter
+            columns:
+              - column: { name: counter_year, type: int, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: next_value, type: bigint, constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - createTable:
+            tableName: ticket
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: public_number, type: varchar(24), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_ticket_number } }
+              - column: { name: requester_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: assignee_id, type: varchar(36) }
+              - column: { name: category_id, type: varchar(36) }
+              - column: { name: subject, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: description, type: clob, constraints: { nullable: false } }
+              - column: { name: status_name, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: priority_name, type: varchar(16), constraints: { nullable: false } }
+              - column: { name: due_at, type: timestamp }
+              - column: { name: deadline_warning_sent, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: overdue_sent, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: first_responded_at, type: timestamp }
+              - column: { name: resolved_at, type: timestamp }
+              - column: { name: closed_at, type: timestamp }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: ticket
+            baseColumnNames: requester_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ticket_requester
+        - addForeignKeyConstraint:
+            baseTableName: ticket
+            baseColumnNames: assignee_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ticket_assignee
+        - addForeignKeyConstraint:
+            baseTableName: ticket
+            baseColumnNames: category_id
+            referencedTableName: category
+            referencedColumnNames: id
+            constraintName: fk_ticket_category
+        - createIndex:
+            tableName: ticket
+            indexName: ix_ticket_requester
+            columns:
+              - column: { name: requester_id }
+              - column: { name: created_at }
+        - createIndex:
+            tableName: ticket
+            indexName: ix_ticket_queue
+            columns:
+              - column: { name: status_name }
+              - column: { name: priority_name }
+              - column: { name: updated_at }
+        - createIndex:
+            tableName: ticket
+            indexName: ix_ticket_due
+            columns:
+              - column: { name: due_at }
+
+        - createTable:
+            tableName: ticket_comment
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: ticket_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: author_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: body, type: clob, constraints: { nullable: false } }
+              - column: { name: visibility_name, type: varchar(16), constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: ticket_comment
+            baseColumnNames: ticket_id
+            referencedTableName: ticket
+            referencedColumnNames: id
+            constraintName: fk_comment_ticket
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: ticket_comment
+            baseColumnNames: author_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_comment_author
+        - createIndex:
+            tableName: ticket_comment
+            indexName: ix_comment_ticket
+            columns:
+              - column: { name: ticket_id }
+              - column: { name: created_at }
+
+        - createTable:
+            tableName: attachment
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: ticket_id, type: varchar(36) }
+              - column: { name: comment_id, type: varchar(36) }
+              - column: { name: uploaded_by, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: original_name, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: stored_name, type: varchar(500), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_attach_stored } }
+              - column: { name: media_type, type: varchar(120), constraints: { nullable: false } }
+              - column: { name: file_size, type: bigint, constraints: { nullable: false } }
+              - column: { name: sha256, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: scan_status, type: varchar(16), constraints: { nullable: false } }
+              - column: { name: visibility_name, type: varchar(16), constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: attachment
+            baseColumnNames: ticket_id
+            referencedTableName: ticket
+            referencedColumnNames: id
+            constraintName: fk_attach_ticket
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: attachment
+            baseColumnNames: comment_id
+            referencedTableName: ticket_comment
+            referencedColumnNames: id
+            constraintName: fk_attach_comment
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: attachment
+            baseColumnNames: uploaded_by
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_attach_user
+        - createIndex:
+            tableName: attachment
+            indexName: ix_attach_ticket
+            columns:
+              - column: { name: ticket_id }
+              - column: { name: comment_id }
+
+        - createTable:
+            tableName: notification
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: user_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: ticket_id, type: varchar(36) }
+              - column: { name: type_name, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: title, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: message, type: varchar(500), constraints: { nullable: false } }
+              - column: { name: read_at, type: timestamp }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: notification
+            baseColumnNames: user_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_notice_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: notification
+            baseColumnNames: ticket_id
+            referencedTableName: ticket
+            referencedColumnNames: id
+            constraintName: fk_notice_ticket
+            onDelete: CASCADE
+        - createIndex:
+            tableName: notification
+            indexName: ix_notice_unread
+            columns:
+              - column: { name: user_id }
+              - column: { name: read_at }
+              - column: { name: created_at }
+
+        - createTable:
+            tableName: app_settings
+            columns:
+              - column: { name: id, type: int, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: institution_name, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: support_email, type: varchar(254) }
+              - column: { name: support_phone, type: varchar(40) }
+              - column: { name: timezone_name, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: attachment_limit_mb, type: int, constraints: { nullable: false } }
+              - column: { name: reopen_days, type: int, constraints: { nullable: false } }
+              - column: { name: deadline_warning_hours, type: int, constraints: { nullable: false } }
+              - column: { name: primary_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: accent_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: sidebar_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: canvas_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: login_background_path, type: varchar(500) }
+              - column: { name: login_background_media_type, type: varchar(120) }
+              - column: { name: smtp_host, type: varchar(255) }
+              - column: { name: smtp_port, type: int }
+              - column: { name: smtp_tls, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: smtp_from_name, type: varchar(160) }
+              - column: { name: smtp_from_address, type: varchar(254) }
+              - column: { name: smtp_username, type: varchar(254) }
+              - column: { name: smtp_password_enc, type: varchar(2048) }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - insert:
+            tableName: app_settings
+            columns:
+              - column: { name: id, valueNumeric: 1 }
+              - column: { name: institution_name, value: Central de Serviços }
+              - column: { name: timezone_name, value: America/Sao_Paulo }
+              - column: { name: attachment_limit_mb, valueNumeric: 25 }
+              - column: { name: reopen_days, valueNumeric: 7 }
+              - column: { name: deadline_warning_hours, valueNumeric: 24 }
+              - column: { name: primary_color, value: '#246BCE' }
+              - column: { name: accent_color, value: '#158574' }
+              - column: { name: sidebar_color, value: '#11263D' }
+              - column: { name: canvas_color, value: '#F5F7FA' }
+              - column: { name: smtp_tls, valueBoolean: true }
+              - column: { name: row_version, valueNumeric: 0 }
+
+        - createTable:
+            tableName: audit_event
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: actor_id, type: varchar(36) }
+              - column: { name: action_name, type: varchar(80), constraints: { nullable: false } }
+              - column: { name: entity_type, type: varchar(80), constraints: { nullable: false } }
+              - column: { name: entity_id, type: varchar(64) }
+              - column: { name: details_json, type: varchar(2000) }
+              - column: { name: correlation_id, type: varchar(64) }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - createIndex:
+            tableName: audit_event
+            indexName: ix_audit_created
+            columns:
+              - column: { name: created_at }
+              - column: { name: action_name }
+
+        - createTable:
+            tableName: spring_session
+            columns:
+              - column: { name: primary_id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: session_id, type: varchar(36), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_session_id } }
+              - column: { name: creation_time, type: bigint, constraints: { nullable: false } }
+              - column: { name: last_access_time, type: bigint, constraints: { nullable: false } }
+              - column: { name: max_inactive_interval, type: int, constraints: { nullable: false } }
+              - column: { name: expiry_time, type: bigint, constraints: { nullable: false } }
+              - column: { name: principal_name, type: varchar(100) }
+        - createIndex:
+            tableName: spring_session
+            indexName: ix_session_expiry
+            columns:
+              - column: { name: expiry_time }
+        - createIndex:
+            tableName: spring_session
+            indexName: ix_session_principal
+            columns:
+              - column: { name: principal_name }
+        - createTable:
+            tableName: spring_session_attributes
+            columns:
+              - column: { name: session_primary_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: attribute_name, type: varchar(200), constraints: { nullable: false } }
+              - column: { name: attribute_bytes, type: blob, constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: spring_session_attributes
+            columnNames: session_primary_id, attribute_name
+            constraintName: pk_session_attr
+        - addForeignKeyConstraint:
+            baseTableName: spring_session_attributes
+            baseColumnNames: session_primary_id
+            referencedTableName: spring_session
+            referencedColumnNames: primary_id
+            constraintName: fk_attr_session
+            onDelete: CASCADE
