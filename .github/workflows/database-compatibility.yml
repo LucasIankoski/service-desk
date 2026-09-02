@@ -1,0 +1,27 @@
+name: database-compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vendor: [postgresql, mysql, oracle, sqlserver]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Verify ${{ matrix.vendor }} compatibility
+        working-directory: backend
+        run: ./mvnw -B -Pdatabase-compatibility -Ddb.compatibility.vendor=${{ matrix.vendor }} verify
