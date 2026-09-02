@@ -38,6 +38,9 @@ npm run dev
 
 Copie [`.env.example`](.env.example) para `.env` e troque todos os secrets antes de executar fora do ambiente local.
 
+Para iniciar, reiniciar, parar e diagnosticar o ambiente completo com Docker Compose, siga o
+[tutorial de inicialização manual](docs/start-local.md).
+
 ## Contas iniciais
 
 Em banco vazio, defina `APP_BOOTSTRAP_ADMIN_EMAIL` e `APP_BOOTSTRAP_ADMIN_PASSWORD`. A senha deve ter ao menos 12 caracteres e será marcada para troca obrigatória. As variáveis são ignoradas depois que existir um administrador.
