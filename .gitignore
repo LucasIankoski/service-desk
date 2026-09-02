@@ -1,0 +1,30 @@
+# Java
+backend/target/
+*.class
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+frontend/*.tsbuildinfo
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Runtime and secrets
+.env
+*.local
+/secrets/
+/data/
+/attachments/
+/logs/
+
+# Test artifacts
+coverage/
+*.log
+architecture-review-*.html
