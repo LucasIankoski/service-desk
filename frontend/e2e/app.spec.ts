@@ -14,9 +14,16 @@ test.beforeEach(async ({ page }) => {
           sidebarColor: "#11263D",
           canvasColor: "#F5F7FA"
         },
+        loginBackgroundUrl: "/api/v1/public/settings/login-background",
         version: 1,
         updatedAt: new Date().toISOString()
       })
+    });
+  });
+  await page.route("**/api/v1/public/settings/login-background", async (route) => {
+    await route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900"><rect width="1440" height="900" fill="#dbeafe"/></svg>'
     });
   });
   await page.route("**/api/v1/auth/me", async (route) => {
@@ -76,6 +83,29 @@ test.beforeEach(async ({ page }) => {
       })
     });
   });
+  await page.route("**/api/v1/admin/users**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        content: [
+          {
+            id: "00000000-0000-0000-0000-000000000003",
+            email: "administrativo@example.test",
+            displayName: "Administrativo Modelo",
+            roles: ["MANAGER"],
+            active: true,
+            passwordChangeRequired: false,
+            anonymized: false,
+            createdAt: new Date().toISOString()
+          }
+        ],
+        number: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1
+      })
+    });
+  });
 });
 
 test("ticket queue is responsive and accessible", async ({ page }, testInfo) => {
@@ -89,4 +119,29 @@ test("ticket queue is responsive and accessible", async ({ page }, testInfo) => 
     });
   });
   expect(violations.violations.filter((violation) => ["critical", "serious"].includes(violation.impact ?? ""))).toEqual([]);
+});
+
+test("login keeps the background visible and places the form on the right on desktop", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/login");
+
+  const panel = page.getByRole("region", { name: "Prefeitura Modelo" });
+  const visual = page.locator("main > [aria-hidden='true']");
+  await expect(panel).toBeVisible();
+  await expect(visual).toHaveCSS("background-image", /login-background/);
+  await page.screenshot({ path: testInfo.outputPath("login-desktop.png"), fullPage: true });
+  const bounds = await panel.boundingBox();
+  const visualBounds = await visual.boundingBox();
+
+  expect(bounds).not.toBeNull();
+  expect(visualBounds).not.toBeNull();
+  expect(visualBounds!.x + visualBounds!.width).toBeLessThanOrEqual(bounds!.x);
+  expect(bounds!.x).toBeGreaterThan(1440 / 2);
+});
+
+test("manager role is presented as Administrativo", async ({ page }) => {
+  await page.goto("/admin");
+
+  await expect(page.getByText("Administrativo", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Gestor", { exact: true })).toHaveCount(0);
 });

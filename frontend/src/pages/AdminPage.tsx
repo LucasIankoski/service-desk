@@ -27,7 +27,7 @@ const allRoles: Role[] = ["REQUESTER", "AGENT", "MANAGER", "ADMIN"];
 const roleLabels: Record<Role, string> = {
   REQUESTER: "Solicitante",
   AGENT: "Atendente",
-  MANAGER: "Gestor",
+  MANAGER: "Administrativo",
   ADMIN: "Administrador"
 };
 

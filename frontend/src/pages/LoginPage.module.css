@@ -8,6 +8,30 @@
   background-size: cover;
 }
 
+.loginScreen {
+  grid-template-columns: minmax(0, 1fr) clamp(480px, 38vw, 600px);
+  place-items: stretch;
+  padding: 0;
+}
+
+.visual {
+  min-width: 0;
+  min-height: 100vh;
+  background-color: var(--color-canvas);
+  background-position: center;
+  background-size: cover;
+}
+
+.loginArea {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(32px, 5vw, 72px);
+  border-left: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: -16px 0 40px rgba(17, 38, 61, 0.08);
+}
+
 .panel {
   width: min(100%, 440px);
   padding: 28px;
@@ -15,6 +39,14 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: var(--shadow-panel);
+}
+
+.loginScreen .panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .brand {
@@ -97,6 +129,46 @@
   font-weight: 700;
 }
 
+@media (max-width: 960px) {
+  .loginScreen {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+    place-items: center;
+    padding: 24px;
+    isolation: isolate;
+  }
+
+  .visual {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+  }
+
+  .visual::after {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 38, 61, 0.24);
+    content: "";
+  }
+
+  .loginArea {
+    min-height: auto;
+    width: min(100%, 440px);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .loginScreen .panel {
+    padding: 28px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--shadow-panel);
+  }
+}
+
 @media (max-width: 520px) {
   .screen {
     padding: 12px;
@@ -105,6 +177,10 @@
 
   .panel {
     align-self: center;
+    padding: 22px;
+  }
+
+  .loginScreen .panel {
     padding: 22px;
   }
 }
