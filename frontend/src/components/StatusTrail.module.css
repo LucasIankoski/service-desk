@@ -1,0 +1,64 @@
+.trail {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.step,
+.done,
+.canceled {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.step span,
+.done span,
+.canceled span {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  font-weight: 900;
+}
+
+.done span {
+  color: #ffffff;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.canceled span {
+  color: #ffffff;
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+}
+
+.step p,
+.done p,
+.canceled p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .trail {
+    grid-template-columns: 1fr;
+  }
+
+  .step,
+  .done,
+  .canceled {
+    grid-template-columns: 32px 1fr;
+    align-items: center;
+  }
+}

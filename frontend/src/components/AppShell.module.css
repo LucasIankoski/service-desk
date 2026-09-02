@@ -1,0 +1,264 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  background: var(--color-canvas);
+}
+
+.sidebar {
+  min-height: 100vh;
+  padding: 22px 18px;
+  background: var(--color-sidebar);
+  color: #ffffff;
+  position: sticky;
+  top: 0;
+}
+
+.brand {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.brand strong,
+.topbar h1 {
+  font-family: "IBM Plex Sans Condensed", "Source Sans 3", sans-serif;
+  letter-spacing: 0;
+}
+
+.brandMark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.nav {
+  display: grid;
+  gap: 6px;
+}
+
+.link,
+.activeLink {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.link svg,
+.activeLink svg,
+.bottomNav svg {
+  width: 19px;
+  height: 19px;
+}
+
+.activeLink {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.workspace {
+  min-width: 0;
+}
+
+.topbar {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.55rem;
+}
+
+.kicker {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-muted);
+  font-weight: 700;
+}
+
+.notifications {
+  position: relative;
+}
+
+.notifications summary {
+  list-style: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background: var(--color-surface);
+  position: relative;
+}
+
+.notifications summary::-webkit-details-marker {
+  display: none;
+}
+
+.notifications summary span {
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 999px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  color: #ffffff;
+  background: var(--color-danger);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.noticePanel {
+  width: min(360px, calc(100vw - 32px));
+  max-height: 420px;
+  overflow: auto;
+  position: absolute;
+  right: 0;
+  top: 50px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.noticeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.noticeHeader button {
+  border: 0;
+  color: var(--color-primary);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.notice,
+.noticeUnread {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  margin-bottom: 8px;
+}
+
+.noticeUnread {
+  border-color: color-mix(in srgb, var(--color-primary), white 45%);
+  background: color-mix(in srgb, var(--color-primary), white 92%);
+}
+
+.notice p,
+.noticeUnread p,
+.emptyNotice {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+}
+
+.content {
+  padding: 26px 28px 92px;
+}
+
+.bottomNav {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  .shell {
+    display: block;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .topbar {
+    min-height: 70px;
+    padding: 12px 14px;
+  }
+
+  .topbar h1 {
+    font-size: 1.18rem;
+  }
+
+  .user {
+    display: none;
+  }
+
+  .content {
+    padding: 16px 14px 90px;
+  }
+
+  .bottomNav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 4px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .bottomNav .link,
+  .bottomNav .activeLink {
+    min-height: 52px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--color-muted);
+    font-size: 0.82rem;
+  }
+
+  .bottomNav .activeLink {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary), white 92%);
+  }
+}

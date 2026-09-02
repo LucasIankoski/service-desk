@@ -1,0 +1,275 @@
+.page,
+.tabs,
+.panel,
+.panelForm {
+  display: grid;
+  gap: 18px;
+}
+
+.heading span {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.heading h2 {
+  margin: 0;
+  font-family: "IBM Plex Sans Condensed", "Source Sans 3", sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0;
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tabList button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tabList button[data-state="active"] {
+  color: #ffffff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.tabList svg {
+  width: 18px;
+  height: 18px;
+}
+
+.panel,
+.panelForm {
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.adminForm,
+.inlineForm,
+.twoCols,
+.threeCols {
+  display: grid;
+  gap: 12px;
+}
+
+.adminForm {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+.inlineForm {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.twoCols {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.threeCols {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.checkGrid {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.checkGrid label,
+.toggle {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 800;
+}
+
+.secret {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-accent), white 50%);
+  border-radius: 8px;
+  color: #0f5f54;
+  background: #d7f2ec;
+  font-weight: 800;
+}
+
+.secret code {
+  color: #083b34;
+}
+
+.table {
+  display: grid;
+  gap: 8px;
+}
+
+.userRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(320px, 1.5fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.userIdentity,
+.roleEditor,
+.rowActions,
+.backgroundEditor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.userIdentity {
+  display: grid;
+}
+
+.userIdentity span,
+.backgroundEditor span {
+  color: var(--color-muted);
+  font-weight: 700;
+}
+
+.roleEditor label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.backgroundEditor {
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.backgroundEditor > label {
+  flex: 1 1 320px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.row div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.row span {
+  color: var(--color-muted);
+}
+
+.roles,
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.color {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.themePreview {
+  min-height: 160px;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  border: 2px solid;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.themePreview aside {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.themePreview main {
+  display: grid;
+  place-content: center;
+  gap: 14px;
+}
+
+.themePreview button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.warningList {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.ok {
+  margin: 0;
+  color: #0f5f54;
+  font-weight: 800;
+}
+
+.state,
+.error {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.error {
+  color: var(--color-danger);
+  font-weight: 800;
+}
+
+@media (max-width: 820px) {
+  .adminForm,
+  .inlineForm,
+  .twoCols,
+  .threeCols,
+  .swatches,
+  .row,
+  .userRow {
+    grid-template-columns: 1fr;
+  }
+
+  .themePreview {
+    grid-template-columns: 70px 1fr;
+  }
+}

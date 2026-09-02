@@ -1,0 +1,35 @@
+.badge {
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 9px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.neutral {
+  color: #334155;
+  background: #e8eef5;
+}
+
+.blue {
+  color: #0d3f82;
+  background: #dbeafe;
+}
+
+.teal {
+  color: #0f5f54;
+  background: #d7f2ec;
+}
+
+.amber {
+  color: #6a4500;
+  background: #fff3c4;
+}
+
+.red {
+  color: #8b1a10;
+  background: #fee4df;
+}
