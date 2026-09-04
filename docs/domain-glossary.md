@@ -9,4 +9,7 @@
 - **Trilha de atendimento**: sequência imutável de eventos visíveis que explica a evolução de uma solicitação.
 - **Nota interna**: comentário visível apenas para atendentes e administrativos.
 - **Prazo**: data final opcional definida manualmente. Não é um SLA calculado.
+- **Agenda**: calendário institucional que reúne eventos públicos e demandas internas do Administrativo.
+- **Evento institucional**: compromisso da instituição publicado por um Administrativo e visível também aos Solicitantes.
+- **Demanda interna**: atividade da Agenda compartilhada somente entre Administrativos, com responsável opcional e andamento pendente ou concluído.
 - **Configuração pública**: subconjunto não sensível da identidade da instituição necessário antes da autenticação.

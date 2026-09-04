@@ -12,7 +12,7 @@ import { formatDateTime, priorityLabel, priorityTone, statusLabel, statusTone } 
 import styles from "./TicketListPage.module.css";
 import { useSession } from "../hooks/useSession";
 
-const statuses: Array<TicketStatus | ""> = ["", "OPEN", "TRIAGE", "IN_PROGRESS", "WAITING_REQUESTER", "RESOLVED", "CLOSED", "CANCELED"];
+const statuses: Array<TicketStatus | ""> = ["", "OPEN", "IN_PROGRESS", "WAITING_REQUESTER", "RESOLVED"];
 const priorities: Array<Priority | ""> = ["", "LOW", "NORMAL", "HIGH", "CRITICAL"];
 
 export default function TicketListPage() {

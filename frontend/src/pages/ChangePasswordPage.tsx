@@ -12,8 +12,8 @@ import { Field, TextInput } from "../components/FormField";
 import styles from "./LoginPage.module.css";
 
 const schema = z.object({
-  password: z.string().min(12, "A senha precisa ter pelo menos 12 caracteres."),
-  confirmPassword: z.string().min(12, "Confirme a nova senha.")
+  password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
+  confirmPassword: z.string().min(8, "Confirme a nova senha.")
 }).refine((value) => value.password === value.confirmPassword, {
   message: "As senhas precisam ser iguais.",
   path: ["confirmPassword"]

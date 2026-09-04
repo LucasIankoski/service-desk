@@ -64,7 +64,7 @@ components:
       enum: [REQUESTER, AGENT, MANAGER, ADMIN]
     TicketStatus:
       type: string
-      enum: [OPEN, TRIAGE, IN_PROGRESS, WAITING_REQUESTER, RESOLVED, CLOSED, CANCELED]
+      enum: [OPEN, IN_PROGRESS, WAITING_REQUESTER, RESOLVED]
     Priority:
       type: string
       enum: [LOW, NORMAL, HIGH, CRITICAL]
@@ -77,6 +77,12 @@ components:
     AttachmentScanStatus:
       type: string
       enum: [CLEAN, INFECTED, ERROR]
+    AgendaItemKind:
+      type: string
+      enum: [INTERNAL_DEMAND, INSTITUTION_EVENT]
+    AgendaItemStatus:
+      type: string
+      enum: [PENDING, COMPLETED]
     Theme:
       type: object
       required: [primaryColor, accentColor, sidebarColor, canvasColor]
@@ -157,6 +163,72 @@ components:
       properties:
         id: { type: string, format: uuid }
         displayName: { type: string }
+    AgendaItem:
+      type: object
+      required: [id, kind, title, description, location, assigneeId, assigneeName, status, startAt, endAt, allDay, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/AgendaItemKind" }
+        title: { type: string }
+        description: { type: [string, "null"] }
+        location: { type: [string, "null"] }
+        assigneeId: { type: [string, "null"], format: uuid }
+        assigneeName: { type: [string, "null"] }
+        status:
+          oneOf:
+            - { $ref: "#/components/schemas/AgendaItemStatus" }
+            - { type: "null" }
+        startAt: { type: string, format: date-time, description: Início inclusivo em UTC. }
+        endAt: { type: string, format: date-time, description: Término exclusivo em UTC. }
+        allDay: { type: boolean }
+        version: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    InstitutionEventInput:
+      type: object
+      required: [kind, title, startAt, endAt, allDay]
+      properties:
+        kind: { type: string, const: INSTITUTION_EVENT }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: [string, "null"], maxLength: 4000 }
+        location: { type: [string, "null"], maxLength: 200 }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        allDay: { type: boolean }
+      additionalProperties: false
+    InternalDemandInput:
+      type: object
+      required: [kind, title, startAt, endAt, allDay]
+      properties:
+        kind: { type: string, const: INTERNAL_DEMAND }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: [string, "null"], maxLength: 4000 }
+        assigneeId: { type: [string, "null"], format: uuid }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        allDay: { type: boolean }
+      additionalProperties: false
+    AgendaItemCreate:
+      oneOf:
+        - { $ref: "#/components/schemas/InstitutionEventInput" }
+        - { $ref: "#/components/schemas/InternalDemandInput" }
+      discriminator:
+        propertyName: kind
+        mapping:
+          INSTITUTION_EVENT: "#/components/schemas/InstitutionEventInput"
+          INTERNAL_DEMAND: "#/components/schemas/InternalDemandInput"
+    AgendaItemUpdate:
+      type: object
+      required: [title, startAt, endAt, allDay, version]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: [string, "null"], maxLength: 4000 }
+        location: { type: [string, "null"], maxLength: 200 }
+        assigneeId: { type: [string, "null"], format: uuid }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        allDay: { type: boolean }
+        version: { type: integer, format: int64 }
     CreatedUser:
       type: object
       required: [user, temporaryPassword]
@@ -389,7 +461,7 @@ paths:
               type: object
               required: [password]
               properties:
-                password: { type: string, minLength: 12, maxLength: 128 }
+                password: { type: string, minLength: 8, maxLength: 128 }
       responses:
         "204": { description: Senha alterada. }
         "422": { $ref: "#/components/responses/Unprocessable" }
@@ -421,7 +493,7 @@ paths:
               required: [token, password]
               properties:
                 token: { type: string }
-                password: { type: string, minLength: 12, maxLength: 128 }
+                password: { type: string, minLength: 8, maxLength: 128 }
       responses:
         "204": { description: Senha redefinida. }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -444,6 +516,113 @@ paths:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/Assignee" } }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /users/managers:
+    get:
+      summary: Lista Administrativos ativos disponíveis como responsáveis de demandas internas.
+      responses:
+        "200":
+          description: Diretório mínimo de Administrativos.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Assignee" } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /agenda/items:
+    get:
+      summary: Lista itens sobrepostos ao período, filtrados pelo perfil no banco.
+      description: MANAGER recebe eventos e demandas internas; REQUESTER recebe somente eventos institucionais.
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          required: true
+          description: Limite exclusivo do período consultado.
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Itens visíveis em ordem cronológica.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/AgendaItem" } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Cria evento institucional ou demanda interna; exige MANAGER.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgendaItemCreate" }
+      responses:
+        "201":
+          description: Item criado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgendaItem" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /agenda/items/{id}:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Atualiza os campos do item sem alterar seu tipo; exige MANAGER.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgendaItemUpdate" }
+      responses:
+        "200":
+          description: Item atualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgendaItem" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Item não encontrado. }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Exclui permanentemente um item; exige MANAGER.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - name: version
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { description: Item excluído. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Item não encontrado. }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /agenda/items/{id}/status:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Conclui ou reabre uma demanda interna; exige MANAGER.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, version]
+              properties:
+                status: { $ref: "#/components/schemas/AgendaItemStatus" }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Andamento atualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgendaItem" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Item não encontrado. }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
   /tickets:
     get:
       summary: Lista solicitações conforme o escopo do usuário.

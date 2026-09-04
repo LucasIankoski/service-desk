@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-simplify-ticket-statuses
+      author: service-desk-team
+      changes:
+        - update:
+            tableName: ticket
+            columns:
+              - column:
+                  name: status_name
+                  value: OPEN
+            where: status_name = 'TRIAGE'
+        - update:
+            tableName: ticket
+            columns:
+              - column:
+                  name: status_name
+                  value: RESOLVED
+            where: status_name IN ('CLOSED', 'CANCELED')

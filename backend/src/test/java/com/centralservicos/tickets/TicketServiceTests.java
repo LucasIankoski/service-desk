@@ -53,6 +53,7 @@ class TicketServiceTests {
         ticket = tickets.assign(ticket.id(), agent.id(), ticket.version(), agent);
 
         var assigned = ticket;
+        assertThat(assigned.status()).isEqualTo(TicketStatus.OPEN);
         assertThatThrownBy(() -> tickets.transition(assigned.id(), TicketStatus.IN_PROGRESS,
                 assigned.version(), agent))
                 .isInstanceOf(DomainException.class)

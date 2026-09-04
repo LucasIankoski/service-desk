@@ -19,6 +19,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
@@ -99,6 +100,49 @@ class SecurityIntegrationTests {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/users/assignees").session(session))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void agendaEndpointsEnforceRoleSpecificAccess() throws Exception {
+        var requester = identity.create(uniqueEmail("agenda-requester"), "Agenda Requester",
+                Set.of(Role.REQUESTER), null);
+        identity.changePassword(requester.user().id(), "permanent-password-123");
+        var requesterSession = login(requester.user().email(), "permanent-password-123");
+
+        mvc.perform(get("/api/v1/agenda/items")
+                        .param("start", "2026-09-01T00:00:00Z")
+                        .param("end", "2026-10-01T00:00:00Z")
+                        .session(requesterSession))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/agenda/items")
+                        .session(requesterSession)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/users/managers").session(requesterSession))
+                .andExpect(status().isForbidden());
+
+        var agent = identity.create(uniqueEmail("agenda-agent"), "Agenda Agent", Set.of(Role.AGENT), null);
+        identity.changePassword(agent.user().id(), "permanent-password-123");
+        var agentSession = login(agent.user().email(), "permanent-password-123");
+        mvc.perform(get("/api/v1/agenda/items")
+                        .param("start", "2026-09-01T00:00:00Z")
+                        .param("end", "2026-10-01T00:00:00Z")
+                        .session(agentSession))
+                .andExpect(status().isForbidden());
+
+        var manager = identity.create(uniqueEmail("agenda-manager"), "Agenda Manager", Set.of(Role.MANAGER), null);
+        identity.changePassword(manager.user().id(), "permanent-password-123");
+        var managerSession = login(manager.user().email(), "permanent-password-123");
+        mvc.perform(get("/api/v1/users/managers").session(managerSession))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/api/v1/agenda/items/00000000-0000-0000-0000-000000000000/status")
+                        .session(managerSession)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\",\"version\":0}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

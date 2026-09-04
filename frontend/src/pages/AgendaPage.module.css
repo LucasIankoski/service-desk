@@ -1,0 +1,418 @@
+.page {
+  display: grid;
+  gap: 18px;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.heading > div > span,
+.kicker {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.heading h2,
+.dialog h2 {
+  margin: 0;
+  font-family: "IBM Plex Sans Condensed", "Source Sans 3", sans-serif;
+  letter-spacing: 0;
+}
+
+.heading h2 {
+  font-size: 2rem;
+}
+
+.heading p {
+  margin: 5px 0 0;
+  color: var(--color-muted);
+}
+
+.controls {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--color-canvas);
+}
+
+.filter,
+.filterActive {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--color-muted);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filterActive {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 1px 5px rgba(17, 38, 61, 0.12);
+}
+
+.completedToggle,
+.allDay {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.completedToggle input,
+.allDay input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.legend {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eventDot,
+.demandDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.eventDot {
+  background: var(--color-accent);
+}
+
+.demandDot {
+  background: var(--color-primary);
+}
+
+.calendarPanel {
+  --fc-classic-primary: var(--color-primary);
+  --fc-classic-event: var(--color-primary);
+  --fc-classic-event-contrast: #ffffff;
+  --fc-classic-faint-foreground: var(--color-muted);
+  --fc-classic-muted-foreground: var(--color-muted);
+  --fc-classic-border: var(--color-border);
+  min-width: 0;
+  position: relative;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.calendarPanel :global(.fc) {
+  --fc-border-color: var(--color-border);
+  --fc-button-bg-color: var(--color-primary);
+  --fc-button-border-color: var(--color-primary);
+  --fc-button-hover-bg-color: color-mix(in srgb, var(--color-primary), black 12%);
+  --fc-button-hover-border-color: color-mix(in srgb, var(--color-primary), black 12%);
+  --fc-button-active-bg-color: color-mix(in srgb, var(--color-primary), black 20%);
+  --fc-button-active-border-color: color-mix(in srgb, var(--color-primary), black 20%);
+  --fc-today-bg-color: color-mix(in srgb, var(--color-primary), white 93%);
+  color: var(--color-text);
+}
+
+.calendarPanel :global(.fc-toolbar-title) {
+  font-family: "IBM Plex Sans Condensed", "Source Sans 3", sans-serif;
+  color: var(--color-ink);
+  font-size: 1.45rem;
+}
+
+.calendarPanel :global(.fc-button) {
+  min-height: 38px;
+  font-weight: 700;
+}
+
+.calendarPanel :global(.fc-event) {
+  border: 0;
+  border-radius: 5px;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.eventItem {
+  background: var(--color-accent) !important;
+  color: #ffffff !important;
+}
+
+.demandItem {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+}
+
+.completedItem {
+  opacity: 0.56;
+  text-decoration: line-through;
+}
+
+.loading {
+  position: absolute;
+  top: 75px;
+  right: 20px;
+  z-index: 2;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 3px 12px rgba(17, 38, 61, 0.15);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.error {
+  margin: 0 0 10px;
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(17, 38, 61, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: min(620px, calc(100vw - 28px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 21;
+  transform: translate(-50%, -50%);
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 24px 80px rgba(17, 38, 61, 0.3);
+}
+
+.editorDialog {
+  width: min(720px, calc(100vw - 28px));
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.dialogHeader h2 {
+  margin-top: 5px;
+  font-size: 1.65rem;
+}
+
+.closeButton {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.closeButton svg {
+  width: 19px;
+}
+
+.eventPill,
+.demandPill {
+  display: inline-flex;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.eventPill {
+  background: var(--color-accent);
+}
+
+.demandPill {
+  background: var(--color-primary);
+}
+
+.details {
+  display: grid;
+  gap: 10px;
+}
+
+.details p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-muted);
+}
+
+.details svg {
+  width: 18px;
+  color: var(--color-primary);
+}
+
+.description {
+  margin-top: 5px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--color-canvas);
+  white-space: pre-wrap;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.editorForm {
+  display: grid;
+  gap: 16px;
+}
+
+.typeChoice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  padding: 0;
+  border: 0;
+}
+
+.typeChoice legend {
+  margin-bottom: 7px;
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.typeOption,
+.typeActive {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.typeActive {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary), white 94%);
+}
+
+.typeOption input,
+.typeActive input {
+  position: absolute;
+  opacity: 0;
+}
+
+.typeOption svg,
+.typeActive svg {
+  width: 19px;
+}
+
+.typeChoice:disabled label {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.dateGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 780px) {
+  .heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .controls {
+    align-items: stretch;
+  }
+
+  .segmented {
+    overflow-x: auto;
+  }
+
+  .legend {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .calendarPanel {
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .calendarPanel :global(.fc-header-toolbar) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .calendarPanel :global(.fc-toolbar-chunk) {
+    display: flex;
+    justify-content: center;
+  }
+
+  .calendarPanel :global(.fc-toolbar-title) {
+    text-align: center;
+  }
+
+  .dateGrid,
+  .typeChoice {
+    grid-template-columns: 1fr;
+  }
+
+  .dialogActions {
+    display: grid;
+  }
+}

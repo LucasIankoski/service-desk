@@ -1,6 +1,6 @@
 # Central de Serviços
 
-Central de Serviços interna para abertura, triagem e acompanhamento de solicitações.
+Central de Serviços interna para abertura, atendimento e acompanhamento de solicitações.
 
 ## Stack
 
@@ -43,7 +43,7 @@ Para iniciar, reiniciar, parar e diagnosticar o ambiente completo com Docker Com
 
 ## Contas iniciais
 
-Em banco vazio, defina `APP_BOOTSTRAP_ADMIN_EMAIL` e `APP_BOOTSTRAP_ADMIN_PASSWORD`. A senha deve ter ao menos 12 caracteres e será marcada para troca obrigatória. As variáveis são ignoradas depois que existir um administrador.
+Em banco vazio, defina `APP_BOOTSTRAP_ADMIN_EMAIL` e `APP_BOOTSTRAP_ADMIN_PASSWORD`. A senha deve ter ao menos 8 caracteres e será marcada para troca obrigatória. As variáveis são ignoradas depois que existir um administrador.
 
 ## Qualidade
 

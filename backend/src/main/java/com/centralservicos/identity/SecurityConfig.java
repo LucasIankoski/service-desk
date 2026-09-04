@@ -3,6 +3,7 @@ package com.centralservicos.identity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -50,6 +51,9 @@ class SecurityConfig {
                                 "/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/users/assignees").hasAnyRole("AGENT", "MANAGER")
+                        .requestMatchers("/api/v1/users/managers").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agenda/**").hasAnyRole("REQUESTER", "MANAGER")
+                        .requestMatchers("/api/v1/agenda/**").hasRole("MANAGER")
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))

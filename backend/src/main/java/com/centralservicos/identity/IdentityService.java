@@ -95,6 +95,15 @@ public class IdentityService {
     }
 
     @Transactional(readOnly = true)
+    public List<AssigneeView> activeManagers() {
+        var ids = users.findActiveIdsWithAnyRole(Set.of(Role.MANAGER));
+        return users.findAllByIdIn(ids).stream()
+                .map(user -> new AssigneeView(user.id(), user.displayName()))
+                .sorted(Comparator.comparing(AssigneeView::displayName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public AuthenticatedUser refreshForSession(UUID id) {
         return users.findById(id).map(this::principal).orElse(null);
     }
@@ -221,8 +230,8 @@ public class IdentityService {
     }
 
     private void validatePassword(String password) {
-        if (password == null || password.length() < 12 || password.length() > 128) {
-            throw DomainException.unprocessable("A senha deve ter entre 12 e 128 caracteres.");
+        if (password == null || password.length() < 8 || password.length() > 128) {
+            throw DomainException.unprocessable("A senha deve ter entre 8 e 128 caracteres.");
         }
     }
 

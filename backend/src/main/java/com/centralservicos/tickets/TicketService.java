@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @Service
 public class TicketService {
 
-    private static final Set<TicketStatus> TERMINAL_STATUSES = Set.of(TicketStatus.CLOSED, TicketStatus.CANCELED);
+    private static final Set<TicketStatus> TERMINAL_STATUSES = Set.of(TicketStatus.RESOLVED);
     private static final Pattern MENTION_PATTERN = Pattern.compile("<@([0-9a-fA-F-]{36})>");
 
     private final TicketRepository tickets;
@@ -254,9 +254,6 @@ public class TicketService {
         if (next == null) {
             throw DomainException.unprocessable("Informe o próximo status.");
         }
-        if (ticket.terminal()) {
-            throw DomainException.unprocessable("Chamados encerrados não podem mudar de status.");
-        }
         var current = ticket.statusName();
         if (current == next) {
             throw DomainException.unprocessable("A solicitação já está neste status.");
@@ -266,24 +263,18 @@ public class TicketService {
             assertWithinReopenWindow(ticket);
             return;
         }
-        if (ticket.requesterId().equals(actor.id()) && current == TicketStatus.RESOLVED
-                && next == TicketStatus.CLOSED) {
-            return;
+        if (ticket.terminal()) {
+            throw DomainException.unprocessable("Chamados resolvidos não podem mudar de status.");
         }
         assertCanOperate(actor);
-        if (next == TicketStatus.CANCELED) {
-            return;
-        }
         if (next == TicketStatus.IN_PROGRESS && ticket.categoryId() == null) {
             throw DomainException.unprocessable("A categoria é obrigatória antes do atendimento.");
         }
         var allowed = switch (current) {
-            case OPEN -> Set.of(TicketStatus.TRIAGE);
-            case TRIAGE -> Set.of(TicketStatus.IN_PROGRESS);
+            case OPEN -> Set.of(TicketStatus.IN_PROGRESS);
             case IN_PROGRESS -> Set.of(TicketStatus.WAITING_REQUESTER, TicketStatus.RESOLVED);
             case WAITING_REQUESTER -> Set.of(TicketStatus.IN_PROGRESS);
-            case RESOLVED -> Set.of(TicketStatus.CLOSED);
-            case CLOSED, CANCELED -> Set.<TicketStatus>of();
+            case RESOLVED -> Set.<TicketStatus>of();
         };
         if (!allowed.contains(next)) {
             throw DomainException.unprocessable("Transição de status inválida.");

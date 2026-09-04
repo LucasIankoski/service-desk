@@ -85,13 +85,10 @@ export function listAssignees() {
 }
 
 export const statusLabels: Record<TicketStatus, string> = {
-  OPEN: "Aberta",
-  TRIAGE: "Em triagem",
+  OPEN: "Aberto",
   IN_PROGRESS: "Em atendimento",
-  WAITING_REQUESTER: "Aguardando solicitante",
-  RESOLVED: "Resolvida",
-  CLOSED: "Fechada",
-  CANCELED: "Cancelada"
+  WAITING_REQUESTER: "Aguardando Solicitante",
+  RESOLVED: "Resolvido"
 };
 
 export const priorityLabels: Record<Priority, string> = {

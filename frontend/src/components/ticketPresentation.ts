@@ -10,9 +10,8 @@ export function priorityLabel(priority: Priority) {
 }
 
 export function statusTone(status: TicketStatus) {
-  if (status === "RESOLVED" || status === "CLOSED") return "teal";
+  if (status === "RESOLVED") return "teal";
   if (status === "WAITING_REQUESTER") return "amber";
-  if (status === "CANCELED") return "neutral";
   return "blue";
 }
 

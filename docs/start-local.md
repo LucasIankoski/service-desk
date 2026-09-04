@@ -32,7 +32,7 @@ if (-not (Test-Path .env)) {
 ```
 
 Abra `.env` e troque, no mínimo, `DB_PASSWORD`, `APP_BOOTSTRAP_ADMIN_EMAIL` e
-`APP_BOOTSTRAP_ADMIN_PASSWORD`. A senha inicial do administrador precisa ter pelo menos 12 caracteres.
+`APP_BOOTSTRAP_ADMIN_PASSWORD`. A senha inicial do administrador precisa ter pelo menos 8 caracteres.
 As variáveis de bootstrap são ignoradas quando o banco já possui um administrador.
 
 3. Gere a chave de criptografia somente se o arquivo ainda não existir:

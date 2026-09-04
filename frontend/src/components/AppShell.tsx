@@ -1,4 +1,4 @@
-import { Bell, Home, LogOut, Plus, Settings, Ticket } from "lucide-react";
+import { Bell, CalendarDays, Home, LogOut, Plus, Settings, Ticket } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { logout } from "../api/auth";
@@ -44,6 +44,7 @@ export function AppShell() {
   }
 
   const canAdmin = session.data.roles.includes("ADMIN");
+  const canAgenda = session.data.roles.some((role) => role === "MANAGER" || role === "REQUESTER");
 
   return (
     <div className={styles.shell}>
@@ -55,6 +56,7 @@ export function AppShell() {
         <nav className={styles.nav}>
           <NavItem to="/tickets" icon={<Home />} label="Fila" />
           <NavItem to="/tickets/new" icon={<Plus />} label="Nova solicitação" />
+          {canAgenda ? <NavItem to="/agenda" icon={<CalendarDays />} label="Agenda" /> : null}
           {canAdmin ? <NavItem to="/admin" icon={<Settings />} label="Administrador" /> : null}
         </nav>
       </aside>
@@ -97,6 +99,7 @@ export function AppShell() {
       <nav className={styles.bottomNav} aria-label="Navegação mobile">
         <NavItem to="/tickets" icon={<Ticket />} label="Fila" />
         <NavItem to="/tickets/new" icon={<Plus />} label="Abrir" />
+        {canAgenda ? <NavItem to="/agenda" icon={<CalendarDays />} label="Agenda" /> : null}
         {canAdmin ? <NavItem to="/admin" icon={<Settings />} label="Admin" /> : null}
       </nav>
     </div>

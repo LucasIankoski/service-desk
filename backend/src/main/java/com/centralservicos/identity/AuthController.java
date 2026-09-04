@@ -107,10 +107,10 @@ class AuthController {
     }
 
     record LoginRequest(@NotBlank @Email String email, @NotBlank String password) { }
-    record PasswordRequest(@NotBlank @Size(min = 12, max = 128) String password) { }
+    record PasswordRequest(@NotBlank @Size(min = 8, max = 128) String password) { }
     record ForgotPasswordRequest(@NotBlank @Email String email) { }
     record ResetPasswordRequest(@NotBlank String token,
-                                @NotBlank @Size(min = 12, max = 128) String password) { }
+                                @NotBlank @Size(min = 8, max = 128) String password) { }
 
     record MeResponse(java.util.UUID id, String email, String displayName, java.util.Set<Role> roles,
                       boolean passwordChangeRequired) {

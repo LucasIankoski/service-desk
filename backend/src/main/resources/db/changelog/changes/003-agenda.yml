@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-agenda
+      author: service-desk-team
+      changes:
+        - createTable:
+            tableName: agenda_item
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: kind_name, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: title, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: description, type: clob }
+              - column: { name: location, type: varchar(200) }
+              - column: { name: assignee_id, type: varchar(36) }
+              - column: { name: status_name, type: varchar(16) }
+              - column: { name: start_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: end_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: all_day, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: created_by_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: agenda_item
+            baseColumnNames: assignee_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_agenda_assignee
+        - addForeignKeyConstraint:
+            baseTableName: agenda_item
+            baseColumnNames: created_by_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_agenda_creator
+        - createIndex:
+            tableName: agenda_item
+            indexName: ix_agenda_period
+            columns:
+              - column: { name: start_at }
+              - column: { name: end_at }
+        - createIndex:
+            tableName: agenda_item
+            indexName: ix_agenda_kind_period
+            columns:
+              - column: { name: kind_name }
+              - column: { name: start_at }
+        - createIndex:
+            tableName: agenda_item
+            indexName: ix_agenda_assignee
+            columns:
+              - column: { name: assignee_id }

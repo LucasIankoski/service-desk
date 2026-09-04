@@ -47,6 +47,53 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify([{ id: "00000000-0000-0000-0000-000000000001", displayName: "Agente Modelo" }])
     });
   });
+  await page.route("**/api/v1/users/managers", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        { id: "00000000-0000-0000-0000-000000000004", displayName: "Administrativo Agenda" }
+      ])
+    });
+  });
+  await page.route("**/api/v1/agenda/items?**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "22222222-2222-2222-2222-222222222222",
+          kind: "INSTITUTION_EVENT",
+          title: "Reunião de Pais",
+          description: "Encontro com as famílias.",
+          location: "Auditório",
+          assigneeId: null,
+          assigneeName: null,
+          status: null,
+          startAt: "2026-09-10T21:00:00Z",
+          endAt: "2026-09-10T22:30:00Z",
+          allDay: false,
+          version: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: "33333333-3333-3333-3333-333333333333",
+          kind: "INTERNAL_DEMAND",
+          title: "Preparar lista de presença",
+          description: null,
+          location: null,
+          assigneeId: "00000000-0000-0000-0000-000000000004",
+          assigneeName: "Administrativo Agenda",
+          status: "PENDING",
+          startAt: "2026-09-09T03:00:00Z",
+          endAt: "2026-09-10T03:00:00Z",
+          allDay: true,
+          version: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ])
+    });
+  });
   await page.route("**/api/v1/notifications**", async (route) => {
     const isCount = route.request().url().includes("unread-count");
     await route.fulfill({
@@ -144,4 +191,75 @@ test("manager role is presented as Administrativo", async ({ page }) => {
 
   await expect(page.getByText("Administrativo", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Gestor", { exact: true })).toHaveCount(0);
+});
+
+test("manager agenda shows public events and internal demands", async ({ page }, testInfo) => {
+  await page.route("**/api/v1/auth/me", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "00000000-0000-0000-0000-000000000004",
+        email: "administrativo@example.test",
+        displayName: "Administrativo Agenda",
+        roles: ["MANAGER"],
+        passwordChangeRequired: false
+      })
+    });
+  });
+
+  await page.goto("/agenda");
+  await expect(page.getByRole("heading", { name: "Agenda", exact: true })).toBeVisible();
+  await expect(page.getByText("Reunião de Pais")).toBeVisible();
+  await expect(page.getByText("Preparar lista de presença")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Novo item" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("agenda-manager.png"), fullPage: true });
+  await page.addScriptTag({ content: axe.source });
+  const violations = await page.evaluate(async () => {
+    return await (window as unknown as { axe: typeof axe }).axe.run(document, {
+      runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag22aa"] }
+    });
+  });
+  expect(violations.violations.filter((violation) => ["critical", "serious"].includes(violation.impact ?? ""))).toEqual([]);
+});
+
+test("requester agenda is read-only and receives public events", async ({ page }) => {
+  await page.route("**/api/v1/auth/me", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "00000000-0000-0000-0000-000000000005",
+        email: "solicitante@example.test",
+        displayName: "Solicitante Agenda",
+        roles: ["REQUESTER"],
+        passwordChangeRequired: false
+      })
+    });
+  });
+  await page.route("**/api/v1/agenda/items?**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([{
+        id: "22222222-2222-2222-2222-222222222222",
+        kind: "INSTITUTION_EVENT",
+        title: "Reunião de Pais",
+        description: "Encontro com as famílias.",
+        location: "Auditório",
+        assigneeId: null,
+        assigneeName: null,
+        status: null,
+        startAt: "2026-09-10T21:00:00Z",
+        endAt: "2026-09-10T22:30:00Z",
+        allDay: false,
+        version: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }])
+    });
+  });
+
+  await page.goto("/agenda");
+  await expect(page.getByText("Reunião de Pais")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Novo item" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Demandas" })).toHaveCount(0);
+  await expect(page.getByText("Preparar lista de presença")).toHaveCount(0);
 });

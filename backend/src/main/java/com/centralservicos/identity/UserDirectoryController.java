@@ -20,4 +20,9 @@ class UserDirectoryController {
     List<AssigneeView> assignees() {
         return identity.activeAssignees();
     }
+
+    @GetMapping("/managers")
+    List<AssigneeView> managers() {
+        return identity.activeManagers();
+    }
 }

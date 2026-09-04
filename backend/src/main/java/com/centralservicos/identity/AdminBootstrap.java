@@ -28,7 +28,7 @@ class AdminBootstrap implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (identity.hasAdministrator()) return;
-        if (email.isBlank() || password.length() < 12) {
+        if (email.isBlank() || password.length() < 8) {
             LOGGER.warn("Nenhum administrador existe. Defina APP_BOOTSTRAP_ADMIN_EMAIL e uma senha temporária segura.");
             return;
         }

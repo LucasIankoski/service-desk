@@ -14,6 +14,7 @@ const TicketDetailPage = lazy(() => import("../pages/TicketDetailPage"));
 const AdminPage = lazy(() => import("../pages/AdminPage"));
 const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
 const ChangePasswordPage = lazy(() => import("../pages/ChangePasswordPage"));
+const AgendaPage = lazy(() => import("../pages/AgendaPage"));
 
 const router = createBrowserRouter([
   {
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
       { path: "tickets", element: <TicketListPage /> },
       { path: "tickets/new", element: <NewTicketPage /> },
       { path: "tickets/:id", element: <TicketDetailPage /> },
+      { path: "agenda", element: <AgendaPage /> },
       { path: "change-password", element: <ChangePasswordPage /> },
       { path: "admin", element: <AdminPage /> }
     ]

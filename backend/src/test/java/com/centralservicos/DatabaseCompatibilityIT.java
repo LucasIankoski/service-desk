@@ -14,6 +14,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.UUID;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +85,7 @@ class DatabaseCompatibilityIT {
         var requesterId = UUID.randomUUID().toString();
         var ticketId = UUID.randomUUID().toString();
         var commentId = UUID.randomUUID().toString();
+        var agendaItemId = UUID.randomUUID().toString();
         var publicNumber = "SD-2099-" + requesterId.substring(0, 6).toUpperCase();
 
         jdbc.update("""
@@ -111,5 +114,21 @@ class DatabaseCompatibilityIT {
                 where t.public_number = ?
                 """, Integer.class, publicNumber);
         assertThat(joinedRows).isEqualTo(1);
+
+        jdbc.update("insert into user_role (user_id, role_name) values (?, ?)", requesterId, "MANAGER");
+        jdbc.update("""
+                insert into agenda_item
+                (id, kind_name, title, location, start_at, end_at, all_day, created_by_id)
+                values (?, ?, ?, ?, ?, ?, ?, ?)
+                """, agendaItemId, "INSTITUTION_EVENT", "Compatibility event", "Main room",
+                Timestamp.from(Instant.parse("2026-09-20T12:00:00Z")),
+                Timestamp.from(Instant.parse("2026-09-20T13:00:00Z")), false, requesterId);
+        var agendaRows = jdbc.queryForObject("""
+                select count(*)
+                from agenda_item a
+                join user_account u on u.id = a.created_by_id
+                where a.id = ? and a.kind_name = ?
+                """, Integer.class, agendaItemId, "INSTITUTION_EVENT");
+        assertThat(agendaRows).isEqualTo(1);
     }
 }

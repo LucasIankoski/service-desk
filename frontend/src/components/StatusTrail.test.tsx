@@ -7,8 +7,9 @@ describe("StatusTrail", () => {
     render(<StatusTrail status="IN_PROGRESS" />);
 
     expect(screen.getByLabelText("Trilha de atendimento")).toBeInTheDocument();
-    expect(screen.getByText("Aberta")).toBeInTheDocument();
+    expect(screen.getByText("Aberto")).toBeInTheDocument();
     expect(screen.getByText("Em atendimento")).toBeInTheDocument();
-    expect(screen.getByText("Fechada")).toBeInTheDocument();
+    expect(screen.getByText("Aguardando Solicitante")).toBeInTheDocument();
+    expect(screen.getByText("Resolvido")).toBeInTheDocument();
   });
 });

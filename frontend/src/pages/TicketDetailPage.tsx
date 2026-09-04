@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, MessageSquare, Send, UserCheck } from "lucide-react";
+import { Download, MessageSquare, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router";
@@ -112,25 +112,29 @@ export default function TicketDetailPage() {
                 ))}
               </article>
             )) : <p className={styles.state}>Ainda não há comentários.</p>}
-            <form className={styles.commentForm} onSubmit={commentForm.handleSubmit((value) => mutateComment.mutate(value))}>
-              <Field label="Novo comentário">
-                <TextArea {...commentForm.register("body")} />
-              </Field>
-              <div className={styles.commentOptions}>
-                <Field label="Visibilidade">
-                  <SelectInput {...commentForm.register("visibility")}>
-                    <option value="PUBLIC">Público</option>
-                    {canOperate ? <option value="INTERNAL">Nota interna</option> : null}
-                  </SelectInput>
+            {ticket.data.status !== "RESOLVED" ? (
+              <form className={styles.commentForm} onSubmit={commentForm.handleSubmit((value) => mutateComment.mutate(value))}>
+                <Field label="Novo comentário">
+                  <TextArea {...commentForm.register("body")} />
                 </Field>
-                <Field label="Anexos">
-                  <TextInput type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 5))} />
-                </Field>
-              </div>
-              <Button type="submit" variant="primary" icon={<MessageSquare />} disabled={mutateComment.isPending}>
-                Comentar
-              </Button>
-            </form>
+                <div className={styles.commentOptions}>
+                  <Field label="Visibilidade">
+                    <SelectInput {...commentForm.register("visibility")}>
+                      <option value="PUBLIC">Público</option>
+                      {canOperate ? <option value="INTERNAL">Nota interna</option> : null}
+                    </SelectInput>
+                  </Field>
+                  <Field label="Anexos">
+                    <TextInput type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 5))} />
+                  </Field>
+                </div>
+                <Button type="submit" variant="primary" icon={<MessageSquare />} disabled={mutateComment.isPending}>
+                  Comentar
+                </Button>
+              </form>
+            ) : (
+              <p className={styles.state}>Solicitações resolvidas não recebem novos comentários.</p>
+            )}
           </section>
         </article>
 
@@ -142,7 +146,7 @@ export default function TicketDetailPage() {
             <div><dt>Prazo</dt><dd>{formatDateTime(ticket.data.dueAt)}</dd></div>
           </dl>
 
-          {canOperate ? (
+          {canOperate && ticket.data.status !== "RESOLVED" ? (
             <div className={styles.actions}>
               <Button icon={<UserCheck />} onClick={() => mutateAssign.mutate(session.data!.id)} disabled={mutateAssign.isPending}>
                 Assumir
@@ -196,16 +200,13 @@ export default function TicketDetailPage() {
                 <p className={styles.error} role="alert">Não foi possível aplicar a ação.</p>
               ) : null}
             </div>
-          ) : (
+          ) : !canOperate ? (
             <div className={styles.actions}>
               {ticket.data.status === "RESOLVED" ? (
-                <>
-                  <Button onClick={() => mutateStatus.mutate("IN_PROGRESS")}>Reabrir</Button>
-                  <Button variant="primary" icon={<Send />} onClick={() => mutateStatus.mutate("CLOSED")}>Fechar</Button>
-                </>
+                <Button onClick={() => mutateStatus.mutate("IN_PROGRESS")}>Reabrir</Button>
               ) : null}
             </div>
-          )}
+          ) : null}
         </aside>
       </div>
     </section>
@@ -214,15 +215,10 @@ export default function TicketDetailPage() {
 
 function operationalNextStatuses(current: TicketStatus): TicketStatus[] {
   const flow: Record<TicketStatus, TicketStatus[]> = {
-    OPEN: ["TRIAGE"],
-    TRIAGE: ["IN_PROGRESS"],
+    OPEN: ["IN_PROGRESS"],
     IN_PROGRESS: ["WAITING_REQUESTER", "RESOLVED"],
     WAITING_REQUESTER: ["IN_PROGRESS"],
-    RESOLVED: ["CLOSED"],
-    CLOSED: [],
-    CANCELED: []
+    RESOLVED: []
   };
-  return current === "CLOSED" || current === "CANCELED"
-    ? flow[current]
-    : [...flow[current], "CANCELED"];
+  return flow[current];
 }

@@ -11,7 +11,7 @@ import { usePublicSettings } from "../app/PublicSettingsContext";
 import styles from "./LoginPage.module.css";
 
 const schema = z.object({
-  password: z.string().min(12, "A senha precisa ter pelo menos 12 caracteres.")
+  password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres.")
 });
 
 type ResetForm = z.infer<typeof schema>;

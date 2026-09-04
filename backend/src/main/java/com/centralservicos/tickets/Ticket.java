@@ -35,7 +35,6 @@ class Ticket {
     private boolean overdueSent;
     private Instant firstRespondedAt;
     private Instant resolvedAt;
-    private Instant closedAt;
     @Version
     private Long rowVersion;
     private Instant createdAt;
@@ -73,14 +72,11 @@ class Ticket {
     Instant updatedAt() { return updatedAt; }
 
     boolean terminal() {
-        return statusName == TicketStatus.CLOSED || statusName == TicketStatus.CANCELED;
+        return statusName == TicketStatus.RESOLVED;
     }
 
     void assign(UUID assigneeId) {
         this.assigneeId = assigneeId;
-        if (statusName == TicketStatus.OPEN) {
-            statusName = TicketStatus.TRIAGE;
-        }
         touch();
     }
 
@@ -114,9 +110,6 @@ class Ticket {
         }
         if (next == TicketStatus.RESOLVED) {
             resolvedAt = now;
-        }
-        if (next == TicketStatus.CLOSED) {
-            closedAt = now;
         }
         touch();
     }

@@ -1,12 +1,9 @@
 export type Role = "REQUESTER" | "AGENT" | "MANAGER" | "ADMIN";
 export type TicketStatus =
   | "OPEN"
-  | "TRIAGE"
   | "IN_PROGRESS"
   | "WAITING_REQUESTER"
-  | "RESOLVED"
-  | "CLOSED"
-  | "CANCELED";
+  | "RESOLVED";
 export type Priority = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
 export type CommentVisibility = "PUBLIC" | "INTERNAL";
 export type NotificationType =
@@ -17,6 +14,8 @@ export type NotificationType =
   | "DEADLINE_SOON"
   | "OVERDUE";
 export type AttachmentScanStatus = "CLEAN" | "INFECTED" | "ERROR";
+export type AgendaItemKind = "INTERNAL_DEMAND" | "INSTITUTION_EVENT";
+export type AgendaItemStatus = "PENDING" | "COMPLETED";
 
 export type Page<T> = {
   content: T[];
@@ -145,4 +144,21 @@ export type Notification = {
   message: string;
   read: boolean;
   createdAt: string;
+};
+
+export type AgendaItem = {
+  id: string;
+  kind: AgendaItemKind;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  assigneeId?: string | null;
+  assigneeName?: string | null;
+  status?: AgendaItemStatus | null;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 };
