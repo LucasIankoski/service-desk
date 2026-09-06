@@ -17,5 +17,3 @@ spring:
 app:
   encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   attachments-path: ${java.io.tmpdir}/service-desk-tests
-  clamav:
-    enabled: false

@@ -1,6 +1,11 @@
 package com.centralservicos.agenda;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
@@ -12,6 +17,8 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "agenda_item")
@@ -26,8 +33,15 @@ class AgendaItem {
     private String description;
     private String location;
     private UUID assigneeId;
+    @ElementCollection
+    @CollectionTable(name = "agenda_item_assignee", joinColumns = @JoinColumn(name = "agenda_item_id"))
+    @Column(name = "assignee_id")
+    @OrderColumn(name = "position_index")
+    private List<UUID> assigneeIds = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     private AgendaItemStatus statusName;
+    @Enumerated(EnumType.STRING)
+    private AgendaItemPriority priority;
     private Instant startAt;
     private Instant endAt;
     private boolean allDay;
@@ -63,7 +77,16 @@ class AgendaItem {
     String description() { return description; }
     String location() { return location; }
     UUID assigneeId() { return assigneeId; }
+    List<UUID> assigneeIds() { return List.copyOf(assigneeIds); }
+    void assign(List<UUID> ids) {
+        assigneeIds.clear();
+        assigneeIds.addAll(ids);
+        assigneeId = ids.isEmpty() ? null : ids.getFirst();
+        touch();
+    }
     AgendaItemStatus statusName() { return statusName; }
+    AgendaItemPriority priority() { return priority; }
+    void changePriority(AgendaItemPriority priority) { this.priority = priority; }
     Instant startAt() { return startAt; }
     Instant endAt() { return endAt; }
     boolean allDay() { return allDay; }

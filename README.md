@@ -7,7 +7,7 @@ Central de Serviços interna para abertura, atendimento e acompanhamento de soli
 - Java 25, Spring Boot 4.1 e Spring Modulith
 - React 19, TypeScript e Vite 8
 - PostgreSQL, MySQL, Oracle ou SQL Server selecionado por implantação
-- Docker Compose, Caddy e ClamAV
+- Docker Compose e Caddy
 
 ## Estrutura
 
@@ -28,7 +28,7 @@ $bytes = [byte[]]::new(32)
 [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
 [Convert]::ToBase64String($bytes) | Set-Content secrets/app_encryption_key -NoNewline
 Copy-Item .env.example .env
-docker compose --profile postgres up -d postgres clamav
+docker compose --profile postgres up -d postgres
 cd backend
 ./mvnw spring-boot:run
 cd ../frontend

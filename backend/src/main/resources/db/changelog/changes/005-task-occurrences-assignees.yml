@@ -1,0 +1,55 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-task-occurrences-assignees
+      author: service-desk-team
+      changes:
+        - createTable:
+            tableName: agenda_item_assignee
+            columns:
+              - column: { name: agenda_item_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: assignee_id, type: varchar(36), constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: agenda_item_assignee
+            columnNames: agenda_item_id, position_index
+            constraintName: pk_agenda_item_assignee
+        - addForeignKeyConstraint:
+            baseTableName: agenda_item_assignee
+            baseColumnNames: agenda_item_id
+            referencedTableName: agenda_item
+            referencedColumnNames: id
+            constraintName: fk_agenda_members_item
+        - addForeignKeyConstraint:
+            baseTableName: agenda_item_assignee
+            baseColumnNames: assignee_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_agenda_members_user
+        - createIndex:
+            tableName: agenda_item_assignee
+            indexName: ix_agenda_members_user
+            columns:
+              - column: { name: assignee_id }
+        - sql:
+            sql: INSERT INTO agenda_item_assignee (agenda_item_id, position_index, assignee_id) SELECT id, 0, assignee_id FROM agenda_item WHERE kind_name = 'INTERNAL_DEMAND' AND assignee_id IS NOT NULL
+        - createTable:
+            tableName: agenda_occurrence
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: occurrence_date, type: date, constraints: { nullable: false } }
+              - column: { name: body, type: clob, constraints: { nullable: false } }
+              - column: { name: created_by_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: agenda_occurrence
+            baseColumnNames: created_by_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_occurrence_creator
+        - createIndex:
+            tableName: agenda_occurrence
+            indexName: ix_occurrence_date
+            columns:
+              - column: { name: occurrence_date }

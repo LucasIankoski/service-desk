@@ -1,6 +1,6 @@
 # Iniciando a aplicação manualmente
 
-Este tutorial inicia o ambiente completo com Docker Compose: frontend, API, PostgreSQL e ClamAV.
+Este tutorial inicia o ambiente completo com Docker Compose: frontend, API e PostgreSQL.
 A aplicação fica disponível em `https://localhost:8443`.
 
 ## Pré-requisitos
@@ -60,7 +60,7 @@ docker compose --profile postgres up -d --build
 docker compose ps
 ```
 
-As linhas de `frontend`, `api`, `postgres` e `clamav` devem mostrar `healthy`. Depois, acesse
+As linhas de `frontend`, `api` e `postgres` devem mostrar `healthy`. Depois, acesse
 `https://localhost:8443`. O Caddy usa um certificado local; o navegador pode pedir confirmação na
 primeira abertura.
 
@@ -118,7 +118,6 @@ Ou consulte um serviço específico:
 docker compose logs -f --tail 200 frontend
 docker compose logs -f --tail 200 api
 docker compose logs -f --tail 200 postgres
-docker compose logs -f --tail 200 clamav
 ```
 
 Encerre a visualização dos logs com `Ctrl+C`; isso não para os contêineres.

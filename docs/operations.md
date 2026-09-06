@@ -39,3 +39,11 @@ Banco, bootstrap e master key entram por Docker Secrets ou variáveis protegidas
 ## Incidente
 
 Revogue sessões, desative a conta afetada, preserve logs/auditoria, troque secrets relacionados e valide integridade de banco e anexos. Nunca copie descrições ou arquivos para tickets externos de incidente.
+
+## Anexos no MVP
+
+O MVP não inicia nem utiliza ClamAV. Novos anexos são registrados como NOT_SCANNED, sem garantia de ausência de malware. As validações de arquivos e regras de acesso permanecem ativas.
+
+Ao atualizar uma instalação anterior, use docker compose --profile postgres up -d --build --remove-orphans para remover o container antigo. Variáveis CLAMAV_* antigas não têm efeito e podem ser removidas do ambiente. O volume antigo de assinaturas pode permanecer sem afetar a aplicação.
+
+Status históricos são preservados: CLEAN em versões anteriores não comprova varredura, pois também era gravado quando o scanner estava desativado.

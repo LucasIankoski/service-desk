@@ -42,9 +42,7 @@ public class AgendaService {
                 ? items.findOverlapping(rangeStart, rangeEnd)
                 : items.findOverlappingByKind(AgendaItemKind.INSTITUTION_EVENT, rangeStart, rangeEnd);
         var assigneeIds = new HashSet<UUID>();
-        visible.forEach(item -> {
-            if (item.assigneeId() != null) assigneeIds.add(item.assigneeId());
-        });
+        visible.forEach(item -> assigneeIds.addAll(item.assigneeIds()));
         var names = identity.displayNames(assigneeIds);
         return visible.stream().map(item -> toView(item, names)).toList();
     }
@@ -53,10 +51,31 @@ public class AgendaService {
     public AgendaItemView create(AgendaItemKind kind, String title, String description, String location,
                                  UUID assigneeId, Instant startAt, Instant endAt, boolean allDay,
                                  AuthenticatedUser actor) {
+        return create(kind, title, description, location, assigneeId, startAt, endAt, allDay, null, actor);
+    }
+
+    @Transactional
+    public AgendaItemView create(AgendaItemKind kind, String title, String description, String location,
+                                 UUID assigneeId, Instant startAt, Instant endAt, boolean allDay,
+                                 AgendaItemPriority priority, AuthenticatedUser actor) {
+        return create(kind, title, description, location, assigneeId, startAt, endAt, allDay, priority, null, actor);
+    }
+
+    @Transactional
+    public AgendaItemView create(AgendaItemKind kind, String title, String description, String location,
+                                 UUID assigneeId, Instant startAt, Instant endAt, boolean allDay,
+                                 AgendaItemPriority priority, List<UUID> assigneeIds, AuthenticatedUser actor) {
         assertManager(actor);
+        var assigned = resolveAssignees(assigneeId, assigneeIds, List.of());
+        validateAssignees(kind, assigned);
         validate(kind, title, description, location, assigneeId, startAt, endAt, allDay);
-        var item = items.saveAndFlush(new AgendaItem(kind, title.trim(), optional(description),
-                optional(location), assigneeId, startAt, endAt, allDay, actor.id()));
+        validatePriority(kind, priority);
+        var item = new AgendaItem(kind, title.trim(), optional(description),
+                optional(location), assigneeId, startAt, endAt, allDay, actor.id());
+        item.changePriority(kind == AgendaItemKind.INTERNAL_DEMAND
+                ? (priority == null ? AgendaItemPriority.MEDIUM : priority) : null);
+        item.assign(assigned);
+        items.saveAndFlush(item);
         audit.record(actor.id(), "AGENDA_ITEM_CREATED", "AgendaItem", item.id(),
                 "{\"kind\":\"" + kind + "\"}");
         return toView(item);
@@ -66,11 +85,30 @@ public class AgendaService {
     public AgendaItemView update(UUID id, String title, String description, String location, UUID assigneeId,
                                  Instant startAt, Instant endAt, boolean allDay, long version,
                                  AuthenticatedUser actor) {
+        return update(id, title, description, location, assigneeId, startAt, endAt, allDay, version, null, actor);
+    }
+
+    @Transactional
+    public AgendaItemView update(UUID id, String title, String description, String location, UUID assigneeId,
+                                 Instant startAt, Instant endAt, boolean allDay, long version,
+                                 AgendaItemPriority priority, AuthenticatedUser actor) {
+        return update(id, title, description, location, assigneeId, startAt, endAt, allDay, version, priority, null, actor);
+    }
+
+    @Transactional
+    public AgendaItemView update(UUID id, String title, String description, String location, UUID assigneeId,
+                                 Instant startAt, Instant endAt, boolean allDay, long version,
+                                 AgendaItemPriority priority, List<UUID> assigneeIds, AuthenticatedUser actor) {
         assertManager(actor);
         var item = required(id);
         assertVersion(item, version);
+        var assigned = resolveAssignees(assigneeId, assigneeIds, item.assigneeIds());
+        validateAssignees(item.kindName(), assigned);
         validate(item.kindName(), title, description, location, assigneeId, startAt, endAt, allDay);
+        validatePriority(item.kindName(), priority);
+        if (priority != null) item.changePriority(priority);
         item.update(title.trim(), optional(description), optional(location), assigneeId, startAt, endAt, allDay);
+        item.assign(assigned);
         items.flush();
         audit.record(actor.id(), "AGENDA_ITEM_UPDATED", "AgendaItem", id,
                 "{\"kind\":\"" + item.kindName() + "\"}");
@@ -152,6 +190,38 @@ public class AgendaService {
         }
     }
 
+    private List<UUID> resolveAssignees(UUID legacy, List<UUID> ids, List<UUID> existing) {
+        if (ids != null) {
+            if (ids.size() > 100 || ids.stream().anyMatch(Objects::isNull)) {
+                throw DomainException.unprocessable("Informe até 100 responsáveis válidos.");
+            }
+            if (legacy != null && (ids.isEmpty() || !legacy.equals(ids.getFirst()))) {
+                throw DomainException.unprocessable("Os campos de responsáveis são incompatíveis.");
+            }
+            return ids.stream().distinct().toList();
+        }
+        // A legacy client echoing the first assignee must not discard the other assignees.
+        if (legacy != null && !existing.isEmpty() && legacy.equals(existing.getFirst())) return existing;
+        return legacy == null ? List.of() : List.of(legacy);
+    }
+
+    private void validateAssignees(AgendaItemKind kind, List<UUID> ids) {
+        if (kind == AgendaItemKind.INSTITUTION_EVENT && !ids.isEmpty()) {
+            throw DomainException.unprocessable("Eventos institucionais não possuem responsáveis.");
+        }
+        for (var id : ids) {
+            if (!identity.activeUserHasAnyRole(id, Set.of(Role.MANAGER))) {
+                throw DomainException.unprocessable("Cada responsável deve ser um Administrativo ativo.");
+            }
+        }
+    }
+
+    private void validatePriority(AgendaItemKind kind, AgendaItemPriority priority) {
+        if (kind == AgendaItemKind.INSTITUTION_EVENT && priority != null) {
+            throw DomainException.unprocessable("Eventos institucionais não possuem prioridade.");
+        }
+    }
+
     private void validateRange(Instant rangeStart, Instant rangeEnd) {
         if (rangeStart == null || rangeEnd == null || !rangeEnd.isAfter(rangeStart)) {
             throw DomainException.unprocessable("Informe um período válido.");
@@ -185,16 +255,16 @@ public class AgendaService {
     }
 
     private AgendaItemView toView(AgendaItem item) {
-        var names = item.assigneeId() == null
-                ? Map.<UUID, String>of()
-                : identity.displayNames(List.of(item.assigneeId()));
+        var names = identity.displayNames(item.assigneeIds());
         return toView(item, names);
     }
 
     private AgendaItemView toView(AgendaItem item, Map<UUID, String> names) {
         var assigneeName = item.assigneeId() == null ? null : names.get(item.assigneeId());
         return new AgendaItemView(item.id(), item.kindName(), item.title(), item.description(), item.location(),
-                item.assigneeId(), assigneeName, item.statusName(), item.startAt(), item.endAt(),
-                item.allDay(), item.rowVersion() == null ? 0 : item.rowVersion(), item.createdAt(), item.updatedAt());
+                item.assigneeId(), assigneeName, item.statusName(), item.priority(), item.startAt(), item.endAt(),
+                item.allDay(), item.rowVersion() == null ? 0 : item.rowVersion(), item.createdAt(), item.updatedAt(),
+                item.assigneeIds().stream().map(id -> new AgendaItemView.AssigneeView(id,
+                        names.getOrDefault(id, "Responsável indisponível"))).toList());
     }
 }

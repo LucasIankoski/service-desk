@@ -1,12 +1,14 @@
 import { apiFetch } from "./http";
-import type { AgendaItem, AgendaItemKind, AgendaItemStatus, Assignee } from "./types";
+import type { AgendaOccurrence, AgendaItem, AgendaItemKind, AgendaItemPriority, AgendaItemStatus, Assignee } from "./types";
 
 export type AgendaItemInput = {
   kind: AgendaItemKind;
+  priority?: AgendaItemPriority | null;
   title: string;
   description?: string | null;
   location?: string | null;
   assigneeId?: string | null;
+  assigneeIds?: string[];
   startAt: string;
   endAt: string;
   allDay: boolean;
@@ -46,4 +48,24 @@ export function deleteAgendaItem(id: string, version: number) {
 
 export function listManagers() {
   return apiFetch<Assignee[]>("/api/v1/users/managers");
+}
+
+export function agendaAssignees(item?: AgendaItem): Assignee[] {
+  return item?.assignees ?? (item?.assigneeId ? [{ id: item.assigneeId, displayName: item.assigneeName ?? "Responsável indisponível" }] : []);
+}
+
+export function listAgendaOccurrences(start: string, end: string) {
+  return apiFetch<AgendaOccurrence[]>(`/api/v1/agenda/occurrences?${new URLSearchParams({ start, end })}`);
+}
+
+export function createAgendaOccurrence(input: { date: string; body: string }) {
+  return apiFetch<AgendaOccurrence>("/api/v1/agenda/occurrences", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateAgendaOccurrence(id: string, input: { date: string; body: string; version: number }) {
+  return apiFetch<AgendaOccurrence>(`/api/v1/agenda/occurrences/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteAgendaOccurrence(id: string, version: number) {
+  return apiFetch<void>(`/api/v1/agenda/occurrences/${id}?version=${version}`, { method: "DELETE" });
 }

@@ -5,7 +5,3 @@ databaseChangeLog:
       file: db/changelog/changes/002-simplify-ticket-statuses.yml
   - include:
       file: db/changelog/changes/003-agenda.yml
-  - include:
-      file: db/changelog/changes/004-agenda-priority.yml
-  - include:
-      file: db/changelog/changes/005-task-occurrences-assignees.yml

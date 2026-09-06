@@ -3,7 +3,7 @@
 | Área | Controle da v1 | Evidência |
 |---|---|---|
 | Encoding e injeção | Bean Validation, DTOs e consultas JPA parametrizadas | testes de API e CodeQL |
-| Arquivos | allowlist, assinatura, tamanho, nome aleatório e ClamAV | testes de upload e EICAR |
+| Arquivos | allowlist, assinatura, tamanho e nome aleatório; sem antivírus no MVP | testes de upload; anexos novos com NOT_SCANNED |
 | Autenticação | Argon2id, rate limit, senha temporária e reset de uso único | testes de identidade |
 | Sessão | cookie HttpOnly/Secure/SameSite, CSRF, idle e duração absoluta | testes Spring Security |
 | Autorização | RBAC cumulativo, ownership e filtragem de demandas da Agenda no banco | matriz de autorização e testes de Agenda |

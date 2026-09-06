@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Central de Serviços API
   version: 1.0.0
-  description: API REST da Central de Serviços v1. Datas são UTC em ISO-8601.
+  description: API REST da Central de Serviços v1. Instantes são UTC em ISO-8601; datas de ocorrências são datas civis da instituição.
 servers:
   - url: /api/v1
 security:
@@ -76,10 +76,14 @@ components:
       enum: [ASSIGNED, PUBLIC_COMMENT, MENTION, STATUS_CHANGED, DEADLINE_SOON, OVERDUE]
     AttachmentScanStatus:
       type: string
-      enum: [CLEAN, INFECTED, ERROR]
+      description: Novos anexos do MVP usam NOT_SCANNED (sem varredura antimalware). Os demais valores são legados.
+      enum: [NOT_SCANNED, CLEAN, INFECTED, ERROR]
     AgendaItemKind:
       type: string
       enum: [INTERNAL_DEMAND, INSTITUTION_EVENT]
+    AgendaItemPriority:
+      type: string
+      enum: [LOW, MEDIUM, HIGH]
     AgendaItemStatus:
       type: string
       enum: [PENDING, COMPLETED]
@@ -163,9 +167,34 @@ components:
       properties:
         id: { type: string, format: uuid }
         displayName: { type: string }
+    AgendaOccurrence:
+      type: object
+      required: [id, date, body, createdById, createdByName, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, format: date, description: Data civil na instituição, sem horário. }
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        createdById: { type: string, format: uuid }
+        createdByName: { type: string }
+        version: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AgendaOccurrenceInput:
+      type: object
+      required: [date, body]
+      properties:
+        date: { type: string, format: date }
+        body: { type: string, minLength: 1, maxLength: 4000 }
+    AgendaOccurrenceUpdate:
+      allOf:
+        - { $ref: "#/components/schemas/AgendaOccurrenceInput" }
+        - type: object
+          required: [version]
+          properties:
+            version: { type: integer, format: int64 }
     AgendaItem:
       type: object
-      required: [id, kind, title, description, location, assigneeId, assigneeName, status, startAt, endAt, allDay, version, createdAt, updatedAt]
+      required: [id, kind, title, description, location, assigneeId, assigneeName, assignees, status, priority, startAt, endAt, allDay, version, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         kind: { $ref: "#/components/schemas/AgendaItemKind" }
@@ -174,9 +203,18 @@ components:
         location: { type: [string, "null"] }
         assigneeId: { type: [string, "null"], format: uuid }
         assigneeName: { type: [string, "null"] }
+        assignees:
+          type: array
+          items: { $ref: "#/components/schemas/Assignee" }
+          description: Responsáveis na ordem selecionada. Campos singulares legados refletem a primeira pessoa.
         status:
           oneOf:
             - { $ref: "#/components/schemas/AgendaItemStatus" }
+            - { type: "null" }
+        priority:
+          description: Prioridade da demanda. Na criação, ausente ou nula assume MEDIUM; na atualização, preserva o valor existente. Eventos aceitam somente ausência ou null.
+          oneOf:
+            - { $ref: "#/components/schemas/AgendaItemPriority" }
             - { type: "null" }
         startAt: { type: string, format: date-time, description: Início inclusivo em UTC. }
         endAt: { type: string, format: date-time, description: Término exclusivo em UTC. }
@@ -192,8 +230,14 @@ components:
         title: { type: string, minLength: 1, maxLength: 160 }
         description: { type: [string, "null"], maxLength: 4000 }
         location: { type: [string, "null"], maxLength: 200 }
+        assigneeIds:
+          type: array
+          maxItems: 0
+          items: { type: string, format: uuid }
+          description: Lista substitui as atribuições; vazia limpa. Sem lista usa assigneeId legado, preservando as demais pessoas quando o primeiro responsável é repetido. IDs duplicados são deduplicados. Campo singular preenchido junto da lista deve corresponder ao primeiro ID.
         startAt: { type: string, format: date-time }
         endAt: { type: string, format: date-time }
+        priority: { type: "null" }
         allDay: { type: boolean }
       additionalProperties: false
     InternalDemandInput:
@@ -204,6 +248,16 @@ components:
         title: { type: string, minLength: 1, maxLength: 160 }
         description: { type: [string, "null"], maxLength: 4000 }
         assigneeId: { type: [string, "null"], format: uuid }
+        priority:
+          description: Prioridade da demanda. Na criação, ausente ou nula assume MEDIUM; na atualização, preserva o valor existente. Eventos aceitam somente ausência ou null.
+          oneOf:
+            - { $ref: "#/components/schemas/AgendaItemPriority" }
+            - { type: "null" }
+        assigneeIds:
+          type: array
+          maxItems: 100
+          items: { type: string, format: uuid }
+          description: Lista substitui as atribuições; vazia limpa. Sem lista usa assigneeId legado, preservando as demais pessoas quando o primeiro responsável é repetido. IDs duplicados são deduplicados. Campo singular preenchido junto da lista deve corresponder ao primeiro ID.
         startAt: { type: string, format: date-time }
         endAt: { type: string, format: date-time }
         allDay: { type: boolean }
@@ -225,6 +279,16 @@ components:
         description: { type: [string, "null"], maxLength: 4000 }
         location: { type: [string, "null"], maxLength: 200 }
         assigneeId: { type: [string, "null"], format: uuid }
+        priority:
+          description: Prioridade da demanda. Na criação, ausente ou nula assume MEDIUM; na atualização, preserva o valor existente. Eventos aceitam somente ausência ou null.
+          oneOf:
+            - { $ref: "#/components/schemas/AgendaItemPriority" }
+            - { type: "null" }
+        assigneeIds:
+          type: array
+          maxItems: 100
+          items: { type: string, format: uuid }
+          description: Lista substitui as atribuições; vazia limpa. Sem lista usa assigneeId legado, preservando as demais pessoas quando o primeiro responsável é repetido. IDs duplicados são deduplicados. Campo singular preenchido junto da lista deve corresponder ao primeiro ID.
         startAt: { type: string, format: date-time }
         endAt: { type: string, format: date-time }
         allDay: { type: boolean }
@@ -526,6 +590,67 @@ paths:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/Assignee" } }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /agenda/occurrences:
+    get:
+      summary: Lista ocorrências diárias compartilhadas; exige MANAGER.
+      parameters:
+        - { name: start, in: query, required: true, description: Data inicial inclusiva., schema: { type: string, format: date } }
+        - { name: end, in: query, required: true, description: Data final exclusiva., schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Ocorrências ordenadas por data e criação.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/AgendaOccurrence" } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Cria ocorrência sem depender de uma tarefa; exige MANAGER.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgendaOccurrenceInput" }
+      responses:
+        "201":
+          description: Ocorrência criada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgendaOccurrence" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /agenda/occurrences/{id}:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Edita ocorrência com controle de versão; exige MANAGER.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgendaOccurrenceUpdate" }
+      responses:
+        "200":
+          description: Ocorrência atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgendaOccurrence" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Ocorrência não encontrada. }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Exclui ocorrência com controle de versão; exige MANAGER.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { name: version, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "204": { description: Ocorrência excluída. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Ocorrência não encontrada. }
+        "409": { $ref: "#/components/responses/Conflict" }
   /agenda/items:
     get:
       summary: Lista itens sobrepostos ao período, filtrados pelo perfil no banco.

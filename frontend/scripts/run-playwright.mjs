@@ -31,7 +31,7 @@ try {
 
 function runPlaywright() {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ["./node_modules/@playwright/test/cli.js", "test"], {
+    const child = spawn(process.execPath, ["./node_modules/@playwright/test/cli.js", "test", ...process.argv.slice(2)], {
       stdio: "inherit",
       env: {
         ...process.env,

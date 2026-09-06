@@ -44,7 +44,7 @@ class Attachment {
         this.mediaType = mediaType;
         this.fileSize = fileSize;
         this.sha256 = sha256;
-        this.scanStatus = AttachmentScanStatus.CLEAN;
+        this.scanStatus = AttachmentScanStatus.NOT_SCANNED;
         this.visibilityName = visibility;
         this.createdAt = Instant.now();
     }

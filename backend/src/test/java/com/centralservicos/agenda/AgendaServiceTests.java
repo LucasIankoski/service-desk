@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,6 +138,97 @@ class AgendaServiceTests {
                 "Sala 2", null, start, end, false, manager))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("não possuem local");
+    }
+
+    @Test
+    void prioritiesDefaultAndSurviveLegacyUpdates() {
+        var manager = user("priority-manager", Role.MANAGER);
+        var start = Instant.parse("2027-01-31T12:00:00Z");
+        var end = Instant.parse("2027-02-02T13:00:00Z");
+        var created = agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Across months", null,
+                null, null, start, end, false, manager);
+        assertThat(created.priority()).isEqualTo(AgendaItemPriority.MEDIUM);
+        var high = agenda.update(created.id(), created.title(), null, null, null, start, end,
+                false, created.version(), AgendaItemPriority.HIGH, manager);
+        var legacy = agenda.update(high.id(), high.title(), "Legacy edit", null, null, start, end,
+                false, high.version(), manager);
+        assertThat(legacy.priority()).isEqualTo(AgendaItemPriority.HIGH);
+        assertThat(agenda.list(Instant.parse("2027-02-01T03:00:00Z"),
+                Instant.parse("2027-03-01T03:00:00Z"), manager))
+                .extracting(AgendaItemView::id).containsExactly(created.id());
+        var completed = agenda.changeStatus(legacy.id(), AgendaItemStatus.COMPLETED, legacy.version(), manager);
+        assertThat(completed.priority()).isEqualTo(AgendaItemPriority.HIGH);
+        assertThatThrownBy(() -> agenda.update(completed.id(), "Stale", null, null, null, start, end,
+                false, created.version(), AgendaItemPriority.LOW, manager)).isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void eventsRejectPriorityAndNonManagersCannotMutateDemand() {
+        var manager = user("priority-access", Role.MANAGER);
+        var start = Instant.parse("2027-03-10T12:00:00Z");
+        var end = start.plusSeconds(3600);
+        assertThatThrownBy(() -> agenda.create(AgendaItemKind.INSTITUTION_EVENT, "Event", null,
+                null, null, start, end, false, AgendaItemPriority.HIGH, manager))
+                .isInstanceOf(DomainException.class).hasMessageContaining("prioridade");
+        var event = agenda.create(AgendaItemKind.INSTITUTION_EVENT, "Event", null,
+                null, null, start, end, false, manager);
+        assertThat(event.priority()).isNull();
+        assertThatThrownBy(() -> agenda.update(event.id(), "Event", null, null, null, start, end,
+                false, event.version(), AgendaItemPriority.LOW, manager)).isInstanceOf(DomainException.class);
+        var demand = agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Private", null,
+                null, null, start, end, false, AgendaItemPriority.LOW, manager);
+        for (var role : Set.of(Role.REQUESTER, Role.AGENT, Role.ADMIN)) {
+            var actor = user("priority-denied", role);
+            assertThatThrownBy(() -> agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Denied", null,
+                    null, null, start, end, false, AgendaItemPriority.HIGH, actor)).isInstanceOf(DomainException.class);
+            assertThatThrownBy(() -> agenda.update(demand.id(), "Denied", null, null, null, start, end,
+                    false, demand.version(), AgendaItemPriority.HIGH, actor)).isInstanceOf(DomainException.class);
+            assertThatThrownBy(() -> agenda.changeStatus(demand.id(), AgendaItemStatus.COMPLETED,
+                    demand.version(), actor)).isInstanceOf(DomainException.class);
+            assertThatThrownBy(() -> agenda.delete(demand.id(), demand.version(), actor)).isInstanceOf(DomainException.class);
+        }
+    }
+
+    @Test
+    void multipleAssigneesAreSharedAndLegacyEditsPreserveThem() {
+        var actor = user("multiple", Role.MANAGER);
+        var second = user("second", Role.MANAGER);
+        var start = Instant.parse("2028-01-10T12:00:00Z");
+        var end = start.plusSeconds(3600);
+        var created = agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Shared task", null, null, null,
+                start, end, false, AgendaItemPriority.HIGH, List.of(actor.id(), second.id(), actor.id()), actor);
+        assertThat(created.assignees()).extracting(AgendaItemView.AssigneeView::id).containsExactly(actor.id(), second.id());
+        var legacy = agenda.update(created.id(), created.title(), null, null, actor.id(), start, end, false,
+                created.version(), actor);
+        assertThat(legacy.assignees()).hasSize(2);
+        var swapped = agenda.update(legacy.id(), legacy.title(), null, null, null, start, end, false,
+                legacy.version(), null, List.of(second.id(), actor.id()), second);
+        assertThat(swapped.assigneeId()).isEqualTo(second.id());
+        assertThat(agenda.list(start, end, actor)).filteredOn(item -> item.id().equals(created.id()))
+                .singleElement().satisfies(item -> assertThat(item.assignees()).hasSize(2));
+        assertThatThrownBy(() -> agenda.update(swapped.id(), swapped.title(), null, null, null, start, end, false,
+                created.version(), null, List.of(), actor)).isInstanceOf(DomainException.class);
+        var cleared = agenda.update(swapped.id(), swapped.title(), null, null, null, start, end, false,
+                swapped.version(), null, List.of(), actor);
+        assertThat(cleared.assignees()).isEmpty();
+        assertThat(cleared.assigneeId()).isNull();
+        var reassigned = agenda.update(cleared.id(), cleared.title(), null, null, null, start, end, false,
+                cleared.version(), null, List.of(actor.id(), second.id()), actor);
+        agenda.delete(reassigned.id(), reassigned.version(), actor);
+        assertThat(agenda.list(start, end, actor)).noneMatch(item -> item.id().equals(created.id()));
+    }
+
+    @Test
+    void everyAssigneeMustBeAnActiveManagerAndEventsCannotHaveMultipleAssignees() {
+        var manager = user("multiple-access", Role.MANAGER);
+        var requester = user("multiple-requester", Role.REQUESTER);
+        var start = Instant.parse("2028-02-01T12:00:00Z");
+        var end = start.plusSeconds(3600);
+        assertThatThrownBy(() -> agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Denied", null, null, null,
+                start, end, false, null, List.of(manager.id(), requester.id()), manager))
+                .isInstanceOf(DomainException.class).hasMessageContaining("Administrativo ativo");
+        assertThatThrownBy(() -> agenda.create(AgendaItemKind.INSTITUTION_EVENT, "Denied", null, null, null,
+                start, end, false, null, List.of(manager.id()), manager)).isInstanceOf(DomainException.class);
     }
 
     private AuthenticatedUser user(String prefix, Role role) {

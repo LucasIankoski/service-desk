@@ -43,14 +43,12 @@ public class AttachmentService {
 
     private final AttachmentRepository repository;
     private final AttachmentStorage storage;
-    private final MalwareScanner malwareScanner;
     private final Tika tika = new Tika();
     private final Clock clock = Clock.systemUTC();
 
-    AttachmentService(AttachmentRepository repository, AttachmentStorage storage, MalwareScanner malwareScanner) {
+    AttachmentService(AttachmentRepository repository, AttachmentStorage storage) {
         this.repository = repository;
         this.storage = storage;
-        this.malwareScanner = malwareScanner;
     }
 
     @Transactional
@@ -134,7 +132,6 @@ public class AttachmentService {
                 throw DomainException.unprocessable("A assinatura real do arquivo não corresponde ao tipo permitido.");
             }
             validateOfficeContainer(extension, content);
-            malwareScanner.assertClean(content, originalName);
             return new InspectedFile(content, detectedType, sha256(content));
         } catch (DomainException exception) {
             throw exception;

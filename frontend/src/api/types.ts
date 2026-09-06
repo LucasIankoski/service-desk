@@ -13,8 +13,9 @@ export type NotificationType =
   | "STATUS_CHANGED"
   | "DEADLINE_SOON"
   | "OVERDUE";
-export type AttachmentScanStatus = "CLEAN" | "INFECTED" | "ERROR";
+export type AttachmentScanStatus = "NOT_SCANNED" | "CLEAN" | "INFECTED" | "ERROR";
 export type AgendaItemKind = "INTERNAL_DEMAND" | "INSTITUTION_EVENT";
+export type AgendaItemPriority = "LOW" | "MEDIUM" | "HIGH";
 export type AgendaItemStatus = "PENDING" | "COMPLETED";
 
 export type Page<T> = {
@@ -149,15 +150,28 @@ export type Notification = {
 export type AgendaItem = {
   id: string;
   kind: AgendaItemKind;
+  priority?: AgendaItemPriority | null;
   title: string;
   description?: string | null;
   location?: string | null;
+  assignees?: Assignee[];
   assigneeId?: string | null;
   assigneeName?: string | null;
   status?: AgendaItemStatus | null;
   startAt: string;
   endAt: string;
   allDay: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AgendaOccurrence = {
+  id: string;
+  date: string;
+  body: string;
+  createdById: string;
+  createdByName: string;
   version: number;
   createdAt: string;
   updatedAt: string;

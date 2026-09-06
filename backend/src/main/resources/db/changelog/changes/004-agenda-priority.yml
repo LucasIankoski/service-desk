@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-agenda-priority
+      author: service-desk-team
+      changes:
+        - addColumn:
+            tableName: agenda_item
+            columns:
+              - column: { name: priority, type: varchar(16) }
+        - update:
+            tableName: agenda_item
+            columns:
+              - column: { name: priority, value: MEDIUM }
+            where: "kind_name = 'INTERNAL_DEMAND'"

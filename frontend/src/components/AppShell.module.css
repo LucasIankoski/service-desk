@@ -250,6 +250,8 @@
   .bottomNav .link,
   .bottomNav .activeLink {
     min-height: 52px;
+    min-width: 0;
+    padding: 8px 6px;
     justify-content: center;
     flex-direction: column;
     gap: 2px;

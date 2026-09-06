@@ -1,6 +1,7 @@
 package com.centralservicos.tickets;
 
 import com.centralservicos.identity.AuthenticatedUser;
+import com.centralservicos.attachments.AttachmentScanStatus;
 import com.centralservicos.identity.IdentityService;
 import com.centralservicos.identity.Role;
 import com.centralservicos.shared.CommentVisibility;
@@ -80,6 +81,25 @@ class TicketServiceTests {
                 CommentVisibility.INTERNAL, List.of(), requester))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Notas internas");
+    }
+
+    @Test
+    void attachmentIsPersistedAsNotScannedAndDownloadRemainsRestricted() {
+        var requester = user("requester-unscanned", Role.REQUESTER);
+        var other = user("other-unscanned", Role.REQUESTER);
+        var file = new MockMultipartFile("files", "evidence.txt", "text/plain",
+                "Evidence for the ticket".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        var ticket = tickets.create("Anexo sem varredura", "Segue evidência.", null,
+                List.of(file), requester);
+        var attachments = tickets.detail(ticket.id(), requester).attachments();
+
+        assertThat(attachments).hasSize(1);
+        var attachment = attachments.getFirst();
+        assertThat(attachment.scanStatus()).isEqualTo(AttachmentScanStatus.NOT_SCANNED);
+        assertThat(tickets.download(attachment.id(), requester)).isNotNull();
+        assertThatThrownBy(() -> tickets.download(attachment.id(), other))
+                .isInstanceOf(DomainException.class);
     }
 
     @Test

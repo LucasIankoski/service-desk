@@ -79,11 +79,6 @@ app:
   encryption-key: ${APP_ENCRYPTION_KEY:}
   attachments-path: ${ATTACHMENTS_PATH:./data/attachments}
   absolute-session-timeout: 12h
-  clamav:
-    enabled: ${CLAMAV_ENABLED:false}
-    host: ${CLAMAV_HOST:localhost}
-    port: ${CLAMAV_PORT:3310}
-    timeout: 10s
   bootstrap:
     admin-email: ${APP_BOOTSTRAP_ADMIN_EMAIL:}
     admin-password: ${APP_BOOTSTRAP_ADMIN_PASSWORD:}

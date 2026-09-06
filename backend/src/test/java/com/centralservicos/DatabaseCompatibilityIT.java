@@ -74,6 +74,8 @@ class DatabaseCompatibilityIT {
                 database.getJdbcUrl(), database.getUsername(), database.getPassword());
         dataSource.setDriverClassName(database.getDriverClassName());
 
+        PriorityMigrationTests.verifyUpgrade(dataSource);
+
         var liquibase = new SpringLiquibase();
         liquibase.setDataSource(dataSource);
         liquibase.setChangeLog("classpath:db/changelog/db.changelog-master.yml");
