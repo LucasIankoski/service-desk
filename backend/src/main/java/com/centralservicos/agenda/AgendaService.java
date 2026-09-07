@@ -65,15 +65,24 @@ public class AgendaService {
     public AgendaItemView create(AgendaItemKind kind, String title, String description, String location,
                                  UUID assigneeId, Instant startAt, Instant endAt, boolean allDay,
                                  AgendaItemPriority priority, List<UUID> assigneeIds, AuthenticatedUser actor) {
+        return create(kind, title, description, location, assigneeId, startAt, endAt, allDay, priority, assigneeIds, null, actor);
+    }
+
+    @Transactional
+    public AgendaItemView create(AgendaItemKind kind, String title, String description, String location,
+                                 UUID assigneeId, Instant startAt, Instant endAt, boolean allDay,
+                                 AgendaItemPriority priority, List<UUID> assigneeIds, AgendaShift shift, AuthenticatedUser actor) {
         assertManager(actor);
         var assigned = resolveAssignees(assigneeId, assigneeIds, List.of());
         validateAssignees(kind, assigned);
         validate(kind, title, description, location, assigneeId, startAt, endAt, allDay);
         validatePriority(kind, priority);
+        validateShift(kind, startAt, endAt, allDay, shift);
         var item = new AgendaItem(kind, title.trim(), optional(description),
                 optional(location), assigneeId, startAt, endAt, allDay, actor.id());
         item.changePriority(kind == AgendaItemKind.INTERNAL_DEMAND
                 ? (priority == null ? AgendaItemPriority.MEDIUM : priority) : null);
+        item.changeShift(shift);
         item.assign(assigned);
         items.saveAndFlush(item);
         audit.record(actor.id(), "AGENDA_ITEM_CREATED", "AgendaItem", item.id(),
@@ -99,6 +108,13 @@ public class AgendaService {
     public AgendaItemView update(UUID id, String title, String description, String location, UUID assigneeId,
                                  Instant startAt, Instant endAt, boolean allDay, long version,
                                  AgendaItemPriority priority, List<UUID> assigneeIds, AuthenticatedUser actor) {
+        return update(id, title, description, location, assigneeId, startAt, endAt, allDay, version, priority, assigneeIds, null, actor);
+    }
+
+    @Transactional
+    public AgendaItemView update(UUID id, String title, String description, String location, UUID assigneeId,
+                                 Instant startAt, Instant endAt, boolean allDay, long version,
+                                 AgendaItemPriority priority, List<UUID> assigneeIds, AgendaShift shift, AuthenticatedUser actor) {
         assertManager(actor);
         var item = required(id);
         assertVersion(item, version);
@@ -106,8 +122,10 @@ public class AgendaService {
         validateAssignees(item.kindName(), assigned);
         validate(item.kindName(), title, description, location, assigneeId, startAt, endAt, allDay);
         validatePriority(item.kindName(), priority);
+        validateShift(item.kindName(), startAt, endAt, allDay, shift);
         if (priority != null) item.changePriority(priority);
         item.update(title.trim(), optional(description), optional(location), assigneeId, startAt, endAt, allDay);
+        item.changeShift(shift);
         item.assign(assigned);
         items.flush();
         audit.record(actor.id(), "AGENDA_ITEM_UPDATED", "AgendaItem", id,
@@ -222,6 +240,21 @@ public class AgendaService {
         }
     }
 
+    private void validateShift(AgendaItemKind kind, Instant startAt, Instant endAt, boolean allDay, AgendaShift shift) {
+        if (shift == null) return;
+        if (kind != AgendaItemKind.INTERNAL_DEMAND || allDay) {
+            throw DomainException.unprocessable("Turnos são exclusivos de demandas internas sem dia inteiro.");
+        }
+        var zone = settings.ticketPolicy().zoneId();
+        var start = startAt.atZone(zone);
+        var end = endAt.atZone(zone);
+        var lastDate = shift == AgendaShift.NIGHT ? end.toLocalDate().minusDays(1) : end.toLocalDate();
+        if (!start.toLocalTime().equals(shift.start()) || !end.toLocalTime().equals(shift.end())
+                || lastDate.isBefore(start.toLocalDate())) {
+            throw DomainException.unprocessable("O período deve respeitar os horários do turno no fuso da instituição.");
+        }
+    }
+
     private void validateRange(Instant rangeStart, Instant rangeEnd) {
         if (rangeStart == null || rangeEnd == null || !rangeEnd.isAfter(rangeStart)) {
             throw DomainException.unprocessable("Informe um período válido.");
@@ -265,6 +298,6 @@ public class AgendaService {
                 item.assigneeId(), assigneeName, item.statusName(), item.priority(), item.startAt(), item.endAt(),
                 item.allDay(), item.rowVersion() == null ? 0 : item.rowVersion(), item.createdAt(), item.updatedAt(),
                 item.assigneeIds().stream().map(id -> new AgendaItemView.AssigneeView(id,
-                        names.getOrDefault(id, "Responsável indisponível"))).toList());
+                        names.getOrDefault(id, "Responsável indisponível"))).toList(), item.shift());
     }
 }

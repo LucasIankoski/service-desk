@@ -1,25 +1,18 @@
 import { apiFetch } from "./http";
-import type { Assignee, Category, CommentVisibility, Page, Priority, TicketDetail, TicketStatus, TicketSummary } from "./types";
+import type { Assignee, Category, CommentVisibility, Page, TicketDetail, TicketStatus, TicketSummary } from "./types";
 
 export type TicketFilters = {
   number?: string;
-  subject?: string;
   status?: TicketStatus | "";
-  priority?: Priority | "";
   categoryId?: string;
   assigneeId?: string;
-  dueAfter?: string;
-  dueBefore?: string;
 };
 
 export function listTickets(filters: TicketFilters, page = 0) {
   const params = new URLSearchParams({ page: String(page), size: "20", sort: "updatedAt,desc" });
   Object.entries(filters).forEach(([key, value]) => {
     if (value) {
-      const normalized = key === "dueAfter" || key === "dueBefore"
-        ? new Date(value).toISOString()
-        : value;
-      params.set(key, normalized);
+      params.set(key, value);
     }
   });
   return apiFetch<Page<TicketSummary>>(`/api/v1/tickets?${params.toString()}`);
@@ -29,10 +22,9 @@ export function getTicket(id: string) {
   return apiFetch<TicketDetail>(`/api/v1/tickets/${id}`);
 }
 
-export function createTicket(input: { subject: string; description: string; categoryId?: string; files: File[] }) {
+export function createTicket(input: { description: string; categoryId: string; files: File[] }) {
   const body = new FormData();
   body.append("metadata", new Blob([JSON.stringify({
-    subject: input.subject,
     description: input.description,
     categoryId: input.categoryId || null
   })], { type: "application/json" }));
@@ -49,8 +41,6 @@ export function assignTicket(id: string, assigneeId: string, version: number) {
 
 export function classifyTicket(id: string, input: {
   categoryId: string;
-  priority: Priority;
-  dueAt?: string | null;
   version: number;
 }) {
   return apiFetch<TicketDetail>(`/api/v1/tickets/${id}/classification`, {
@@ -89,11 +79,4 @@ export const statusLabels: Record<TicketStatus, string> = {
   IN_PROGRESS: "Em atendimento",
   WAITING_REQUESTER: "Aguardando Solicitante",
   RESOLVED: "Resolvido"
-};
-
-export const priorityLabels: Record<Priority, string> = {
-  LOW: "Baixa",
-  NORMAL: "Normal",
-  HIGH: "Alta",
-  CRITICAL: "Crítica"
 };

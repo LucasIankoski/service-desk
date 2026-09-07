@@ -8,7 +8,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Pageable;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ContentDisposition;
@@ -24,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.Instant;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -43,25 +41,18 @@ class TicketController {
 
     @GetMapping
     PageResponse<TicketSummaryView> list(@RequestParam(required = false) String number,
-                                 @RequestParam(required = false) String subject,
                                  @RequestParam(required = false) TicketStatus status,
-                                 @RequestParam(required = false) Priority priority,
                                  @RequestParam(required = false) UUID categoryId,
                                  @RequestParam(required = false) UUID assigneeId,
-                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                 Instant dueBefore,
-                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                 Instant dueAfter,
                                  Pageable pageable) {
-        var filter = new TicketFilter(number, subject, status, priority, categoryId, assigneeId,
-                dueBefore, dueAfter);
+        var filter = new TicketFilter(number, status, categoryId, assigneeId);
         return PageResponse.from(tickets.list(filter, pageable, currentUser.required()));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     TicketDetailView create(@Valid @RequestPart("metadata") CreateTicketRequest request,
                             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
-        return tickets.create(request.subject(), request.description(), request.categoryId(), files,
+        return tickets.create(request.description(), request.categoryId(), files,
                 currentUser.required());
     }
 
@@ -77,18 +68,8 @@ class TicketController {
 
     @PatchMapping("/{id}/classification")
     TicketDetailView classify(@PathVariable UUID id, @Valid @RequestBody ClassifyRequest request) {
-        return tickets.classify(id, request.categoryId(), request.priority(), request.dueAt(),
+        return tickets.classify(id, request.categoryId(),
                 request.version(), currentUser.required());
-    }
-
-    @PatchMapping("/{id}/priority")
-    TicketDetailView priority(@PathVariable UUID id, @Valid @RequestBody PriorityRequest request) {
-        return tickets.setPriority(id, request.priority(), request.version(), currentUser.required());
-    }
-
-    @PatchMapping("/{id}/deadline")
-    TicketDetailView deadline(@PathVariable UUID id, @Valid @RequestBody DeadlineRequest request) {
-        return tickets.setDueAt(id, request.dueAt(), request.version(), currentUser.required());
     }
 
     @PatchMapping("/{id}/status")
@@ -115,21 +96,14 @@ class TicketController {
                 .body(file.resource());
     }
 
-    record CreateTicketRequest(@NotBlank @Size(max = 160) String subject,
-                               @NotBlank @Size(max = 8000) String description,
-                               UUID categoryId) {
+    record CreateTicketRequest(@NotBlank @Size(max = 8000) String description,
+                               @NotNull UUID categoryId) {
     }
 
     record AssignRequest(@NotNull UUID assigneeId, long version) {
     }
 
-    record ClassifyRequest(@NotNull UUID categoryId, Priority priority, Instant dueAt, long version) {
-    }
-
-    record PriorityRequest(@NotNull Priority priority, long version) {
-    }
-
-    record DeadlineRequest(Instant dueAt, long version) {
+    record ClassifyRequest(@NotNull UUID categoryId, long version) {
     }
 
     record StatusRequest(@NotNull TicketStatus status, long version) {

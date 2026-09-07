@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 @Service
 public class TicketService {
 
-    private static final Set<TicketStatus> TERMINAL_STATUSES = Set.of(TicketStatus.RESOLVED);
     private static final Pattern MENTION_PATTERN = Pattern.compile("<@([0-9a-fA-F-]{36})>");
 
     private final TicketRepository tickets;
@@ -75,19 +74,20 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketDetailView create(String subject, String description, UUID categoryId, List<MultipartFile> files,
+    public TicketDetailView create(String description, UUID categoryId, List<MultipartFile> files,
                                    AuthenticatedUser actor) {
-        validateText(subject, description);
-        if (categoryId != null) {
-            categories.requiredActive(categoryId);
+        validateText(description);
+        if (categoryId == null) {
+            throw DomainException.unprocessable("Informe uma categoria.");
         }
-        var ticket = tickets.save(new Ticket(nextPublicNumber(), actor.id(), subject, description, categoryId));
+        categories.requiredActive(categoryId);
+        var ticket = tickets.save(new Ticket(nextPublicNumber(), actor.id(), description, categoryId));
         var policy = settings.ticketPolicy();
         attachments.saveTicketFiles(ticket.id(), null, actor.id(), CommentVisibility.PUBLIC, files,
                 policy.attachmentLimitMb());
         audit.record(actor.id(), "TICKET_CREATED", "Ticket", ticket.id(), "{\"number\":\"" + ticket.publicNumber() + "\"}");
         notifications.notify(identity.activeUserIdsWithAnyRole(Set.of(Role.AGENT, Role.MANAGER)), ticket.id(),
-                NotificationType.STATUS_CHANGED, "Nova solicitação " + ticket.publicNumber(), ticket.subject());
+                NotificationType.STATUS_CHANGED, "Nova solicitação " + ticket.publicNumber(), categoryLabel(ticket));
         return flushedDetail(ticket, actor);
     }
 
@@ -103,34 +103,17 @@ public class TicketService {
         ticket.assign(assigneeId);
         audit.record(actor.id(), "TICKET_ASSIGNED", "Ticket", id, "{\"assigneeId\":\"" + assigneeId + "\"}");
         notifications.notify(assigneeId, ticket.id(), NotificationType.ASSIGNED,
-                "Você foi atribuído a " + ticket.publicNumber(), ticket.subject());
+                "Você foi atribuído a " + ticket.publicNumber(), categoryLabel(ticket));
         return flushedDetail(ticket, actor);
     }
 
     @Transactional
-    public TicketDetailView classify(UUID id, UUID categoryId, Priority priority, Instant dueAt, long version,
+    public TicketDetailView classify(UUID id, UUID categoryId, long version,
                                      AuthenticatedUser actor) {
         var ticket = requiredForOperation(id, version, actor);
         categories.requiredActive(categoryId);
-        ticket.classify(categoryId, priority, dueAt);
+        ticket.classify(categoryId);
         audit.record(actor.id(), "TICKET_CLASSIFIED", "Ticket", id, null);
-        return flushedDetail(ticket, actor);
-    }
-
-    @Transactional
-    public TicketDetailView setPriority(UUID id, Priority priority, long version, AuthenticatedUser actor) {
-        var ticket = requiredForOperation(id, version, actor);
-        ticket.setPriority(priority);
-        audit.record(actor.id(), "TICKET_PRIORITY_CHANGED", "Ticket", id, "{\"priority\":\"" + priority + "\"}");
-        return flushedDetail(ticket, actor);
-    }
-
-    @Transactional
-    public TicketDetailView setDueAt(UUID id, Instant dueAt, long version, AuthenticatedUser actor) {
-        var ticket = requiredForOperation(id, version, actor);
-        ticket.setDueAt(dueAt);
-        audit.record(actor.id(), "TICKET_DEADLINE_CHANGED", "Ticket", id,
-                dueAt == null ? null : "{\"dueAt\":\"" + dueAt + "\"}");
         return flushedDetail(ticket, actor);
     }
 
@@ -174,25 +157,6 @@ public class TicketService {
         return attachments.loadStored(file.storedName(), file.mediaType(), file.originalName());
     }
 
-    @Transactional
-    public int processDeadlineNotifications() {
-        var policy = settings.ticketPolicy();
-        var now = Instant.now();
-        var threshold = now.plusSeconds(policy.deadlineWarningHours() * 3600L);
-        int count = 0;
-        for (Ticket ticket : tickets.findDeadlineWarnings(now, threshold, TERMINAL_STATUSES)) {
-            notifyDeadline(ticket, NotificationType.DEADLINE_SOON, "Prazo próximo em " + ticket.publicNumber());
-            ticket.markDeadlineWarningSent();
-            count++;
-        }
-        for (Ticket ticket : tickets.findOverdue(now, TERMINAL_STATUSES)) {
-            notifyDeadline(ticket, NotificationType.OVERDUE, "Prazo vencido em " + ticket.publicNumber());
-            ticket.markOverdueSent();
-            count++;
-        }
-        return count;
-    }
-
     private Ticket requiredForOperation(UUID id, long version, AuthenticatedUser actor) {
         var ticket = required(id);
         assertCanOperate(actor);
@@ -218,10 +182,7 @@ public class TicketService {
         return "SD-%04d-%06d".formatted(year, counter.next());
     }
 
-    private void validateText(String subject, String description) {
-        if (subject == null || subject.isBlank() || subject.length() > 160) {
-            throw DomainException.unprocessable("Informe um assunto com até 160 caracteres.");
-        }
+    private void validateText(String description) {
         if (description == null || description.isBlank() || description.length() > 8000) {
             throw DomainException.unprocessable("Informe uma descrição com até 8000 caracteres.");
         }
@@ -313,27 +274,14 @@ public class TicketService {
                     predicates.add(cb.like(cb.upper(root.get("publicNumber")),
                             "%" + filter.number().trim().toUpperCase() + "%"));
                 }
-                if (filter.subject() != null && !filter.subject().isBlank()) {
-                    predicates.add(cb.like(cb.upper(root.get("subject")),
-                            "%" + filter.subject().trim().toUpperCase() + "%"));
-                }
                 if (filter.status() != null) {
                     predicates.add(cb.equal(root.get("statusName"), filter.status()));
-                }
-                if (filter.priority() != null) {
-                    predicates.add(cb.equal(root.get("priorityName"), filter.priority()));
                 }
                 if (filter.categoryId() != null) {
                     predicates.add(cb.equal(root.get("categoryId"), filter.categoryId()));
                 }
                 if (filter.assigneeId() != null) {
                     predicates.add(cb.equal(root.get("assigneeId"), filter.assigneeId()));
-                }
-                if (filter.dueAfter() != null) {
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("dueAt"), filter.dueAfter()));
-                }
-                if (filter.dueBefore() != null) {
-                    predicates.add(cb.lessThanOrEqualTo(root.get("dueAt"), filter.dueBefore()));
                 }
             }
             return cb.and(predicates.toArray(Predicate[]::new));
@@ -346,10 +294,10 @@ public class TicketService {
                 ? Map.<UUID, String>of()
                 : categories.names(List.of(ticket.categoryId()));
         var categoryName = ticket.categoryId() == null ? null : categoryNames.get(ticket.categoryId());
-        return new TicketSummaryView(ticket.id(), ticket.publicNumber(), ticket.subject(), ticket.statusName(),
-                ticket.priorityName(), ticket.requesterId(), names.get(ticket.requesterId()), ticket.assigneeId(),
+        return new TicketSummaryView(ticket.id(), ticket.publicNumber(), ticket.statusName(),
+                ticket.requesterId(), names.get(ticket.requesterId()), ticket.assigneeId(),
                 names.get(ticket.assigneeId()), ticket.categoryId(), categoryName,
-                ticket.dueAt(), ticket.createdAt(), ticket.updatedAt(),
+                ticket.createdAt(), ticket.updatedAt(),
                 ticket.rowVersion() == null ? 0 : ticket.rowVersion());
     }
 
@@ -376,10 +324,10 @@ public class TicketService {
                         byComment.getOrDefault(comment.id(), List.of())))
                 .toList();
         var categoryName = ticket.categoryId() == null ? null : categoryNames.get(ticket.categoryId());
-        return new TicketDetailView(ticket.id(), ticket.publicNumber(), ticket.subject(), ticket.description(),
-                ticket.statusName(), ticket.priorityName(), ticket.requesterId(), names.get(ticket.requesterId()),
+        return new TicketDetailView(ticket.id(), ticket.publicNumber(), ticket.description(),
+                ticket.statusName(), ticket.requesterId(), names.get(ticket.requesterId()),
                 ticket.assigneeId(), names.get(ticket.assigneeId()), ticket.categoryId(),
-                categoryName, ticket.dueAt(), ticket.createdAt(), ticket.updatedAt(),
+                categoryName, ticket.createdAt(), ticket.updatedAt(),
                 ticket.rowVersion() == null ? 0 : ticket.rowVersion(), rootFiles, visibleComments);
     }
 
@@ -423,9 +371,9 @@ public class TicketService {
                 comment.visibilityName() == CommentVisibility.INTERNAL
                         ? "Nova nota interna em " + ticket.publicNumber()
                         : "Novo comentário em " + ticket.publicNumber(),
-                ticket.subject());
+                categoryLabel(ticket));
         notifications.notify(mentions, ticket.id(), NotificationType.MENTION,
-                "Você foi mencionado em " + ticket.publicNumber(), ticket.subject());
+                "Você foi mencionado em " + ticket.publicNumber(), categoryLabel(ticket));
     }
 
     private Collection<UUID> mentionedUserIds(String body) {
@@ -437,12 +385,8 @@ public class TicketService {
         return ids;
     }
 
-    private void notifyDeadline(Ticket ticket, NotificationType type, String title) {
-        var recipients = new HashSet<UUID>();
-        if (ticket.assigneeId() != null) {
-            recipients.add(ticket.assigneeId());
-        }
-        recipients.addAll(identity.activeUserIdsWithAnyRole(Set.of(Role.MANAGER)));
-        notifications.notify(recipients, ticket.id(), type, title, ticket.subject());
+    private String categoryLabel(Ticket ticket) {
+        return ticket.categoryId() == null ? "Sem categoria"
+                : categories.names(List.of(ticket.categoryId())).getOrDefault(ticket.categoryId(), "Sem categoria");
     }
 }

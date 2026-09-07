@@ -47,3 +47,13 @@ O MVP não inicia nem utiliza ClamAV. Novos anexos são registrados como NOT_SCA
 Ao atualizar uma instalação anterior, use docker compose --profile postgres up -d --build --remove-orphans para remover o container antigo. Variáveis CLAMAV_* antigas não têm efeito e podem ser removidas do ambiente. O volume antigo de assinaturas pode permanecer sem afetar a aplicação.
 
 Status históricos são preservados: CLEAN em versões anteriores não comprova varredura, pois também era gravado quando o scanner estava desativado.
+
+## Atualização: simplificação das solicitações
+
+Publique frontend e backend juntos: a API de solicitações deixa de aceitar assunto, prioridade e vencimento no contrato e passa a exigir categoria ativa na abertura. Classificação altera somente categoria; as rotas de prioridade e prazo deixam de existir.
+
+Interrompa escritas e faça backup antes da migration 007. Ela preserva o assunto como `Assunto anterior: {assunto}`, seguido de uma linha em branco e da descrição integral, inclusive acima de 8000 caracteres. Depois remove os campos antigos, os controles de alerta e a configuração de antecedência. Registros antigos sem categoria permanecem sem classificação; notificações e auditorias históricas são preservadas. A migração não altera a janela de reabertura nem Agenda/Tarefas.
+
+A migration contém SQL específico por fornecedor para concatenar texto longo sem truncamento. Valide a atualização nos quatro bancos com `./mvnw -Pdatabase-compatibility verify`. A reversão desta migration destrutiva exige restauração do backup e publicação conjunta das versões anteriores.
+
+No Docker 29, o Testcontainers 1.21 pode exigir `-Dapi.version=1.44` na execução Maven. A instalação inicial em SQL Server tem um bloqueio anterior à migration 007: a constraint `fk_attach_comment` da migration 001 cria múltiplos caminhos de exclusão em cascata. O teste `existingTicketUpgradeWorksOnSqlServer` valida separadamente a migration 007 sobre as tabelas legadas envolvidas; ele não substitui a validação da instalação completa.

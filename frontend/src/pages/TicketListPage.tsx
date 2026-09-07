@@ -3,17 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Filter, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import type { Priority, TicketStatus } from "../api/types";
+import type { TicketStatus } from "../api/types";
 import { listAssignees, listCategories, listTickets, type TicketFilters } from "../api/tickets";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Field, SelectInput, TextInput } from "../components/FormField";
-import { formatDateTime, priorityLabel, priorityTone, statusLabel, statusTone } from "../components/ticketPresentation";
+import { statusLabel, statusTone } from "../components/ticketPresentation";
 import styles from "./TicketListPage.module.css";
 import { useSession } from "../hooks/useSession";
 
 const statuses: Array<TicketStatus | ""> = ["", "OPEN", "IN_PROGRESS", "WAITING_REQUESTER", "RESOLVED"];
-const priorities: Array<Priority | ""> = ["", "LOW", "NORMAL", "HIGH", "CRITICAL"];
 
 export default function TicketListPage() {
   const [filters, setFilters] = useState<TicketFilters>({});
@@ -78,14 +77,11 @@ export default function TicketListPage() {
           {tickets.data?.content.map((ticket) => (
             <Link to={`/tickets/${ticket.id}`} key={ticket.id} className={styles.ticket}>
               <div className={styles.ticketMain}>
-                <strong>{ticket.subject}</strong>
+                <strong>{ticket.categoryName ?? "Sem categoria"}</strong>
                 <span>{ticket.publicNumber} · {ticket.requesterName ?? "Solicitante"}</span>
               </div>
               <div className={styles.ticketMeta}>
                 <Badge tone={statusTone(ticket.status)}>{statusLabel(ticket.status)}</Badge>
-                <Badge tone={priorityTone(ticket.priority)}>{priorityLabel(ticket.priority)}</Badge>
-                <span>{ticket.categoryName ?? "Sem categoria"}</span>
-                <span>{formatDateTime(ticket.dueAt)}</span>
               </div>
             </Link>
           ))}
@@ -125,16 +121,7 @@ function TicketFilterForm({
 }) {
   return (
     <div className={styles.filterForm}>
-      <Field label="Busca">
-        <span className={styles.searchField}>
-          <Search aria-hidden />
-          <TextInput
-            value={filters.subject ?? ""}
-            onChange={(event) => onChange({ ...filters, subject: event.target.value })}
-            placeholder="Assunto"
-          />
-        </span>
-      </Field>
+
       <Field label="Número">
         <TextInput
           value={filters.number ?? ""}
@@ -149,16 +136,6 @@ function TicketFilterForm({
         >
           {statuses.map((status) => (
             <option key={status || "all"} value={status}>{status ? statusLabel(status) : "Todos"}</option>
-          ))}
-        </SelectInput>
-      </Field>
-      <Field label="Prioridade">
-        <SelectInput
-          value={filters.priority ?? ""}
-          onChange={(event) => onChange({ ...filters, priority: event.target.value as Priority | "" })}
-        >
-          {priorities.map((priority) => (
-            <option key={priority || "all"} value={priority}>{priority ? priorityLabel(priority) : "Todas"}</option>
           ))}
         </SelectInput>
       </Field>
@@ -184,20 +161,7 @@ function TicketFilterForm({
           </SelectInput>
         </Field>
       ) : null}
-      <Field label="Prazo a partir de">
-        <TextInput
-          type="datetime-local"
-          value={filters.dueAfter ?? ""}
-          onChange={(event) => onChange({ ...filters, dueAfter: event.target.value })}
-        />
-      </Field>
-      <Field label="Prazo até">
-        <TextInput
-          type="datetime-local"
-          value={filters.dueBefore ?? ""}
-          onChange={(event) => onChange({ ...filters, dueBefore: event.target.value })}
-        />
-      </Field>
+
       <Button type="button" onClick={() => onChange({})}>Limpar filtros</Button>
     </div>
   );

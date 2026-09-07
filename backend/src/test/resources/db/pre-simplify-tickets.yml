@@ -11,5 +11,3 @@ databaseChangeLog:
       file: db/changelog/changes/005-task-occurrences-assignees.yml
   - include:
       file: db/changelog/changes/006-agenda-shift.yml
-  - include:
-      file: db/changelog/changes/007-simplify-tickets.yml

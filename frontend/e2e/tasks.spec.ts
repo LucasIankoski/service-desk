@@ -78,11 +78,13 @@ async function setup(page: Page, roles = ["MANAGER"]) {
 async function navigate(page: Page, label: string) {
   await page.getByRole("link", { name: label, exact: true }).filter({ visible: true }).click();
   await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
+  if (label === "Tarefas") await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
 }
 
 test("monthly tasks, filters, navigation and accessibility", async ({ page }, testInfo) => {
   await setup(page, ["MANAGER", "ADMIN"]);
   await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
   await expect(page.getByRole("heading", { name: "Tarefas", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("2 de 2 tarefas");
   await expect(page.getByText("Evento público")).toHaveCount(0);
@@ -113,6 +115,7 @@ test("monthly tasks, filters, navigation and accessibility", async ({ page }, te
   await page.evaluate(() => window.scrollTo(0, 0));
   const occurrenceToggle = page.getByRole("button", { name: "Ocorrências do dia", exact: true });
   if (await occurrenceToggle.getAttribute("aria-expanded") === "false") await occurrenceToggle.click();
+  await page.getByLabel("Data das ocorrências").fill("2026-09-05");
   await expect(page.getByText("Apresentação da equipe no período da manhã.")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath("tasks.png"), fullPage: true });
@@ -125,6 +128,7 @@ test("monthly tasks, filters, navigation and accessibility", async ({ page }, te
 test("create in Tasks, edit and reopen in Agenda, delete in Tasks", async ({ page }) => {
   const store = await setup(page);
   await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
   await page.getByRole("button", { name: "Nova tarefa" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Título", { exact: true }).fill("Organizar reunião");
@@ -183,6 +187,7 @@ test("create in Agenda, edit in Tasks and delete in Agenda", async ({ page }) =>
 test("conflicts refresh the list without replacing typed form content", async ({ page }) => {
   const store = await setup(page);
   await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
   await page.getByRole("button", { name: "Editar Preparar documentos" }).click();
   await page.getByRole("dialog").getByLabel("Título", { exact: true }).fill("Minha edição");
   store.conflict();
@@ -205,6 +210,7 @@ for (const role of ["REQUESTER", "AGENT", "ADMIN"]) {
 test("daily occurrences can be created edited and deleted without a task", async ({ page }, testInfo) => {
   const store = await setup(page);
   await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
   const toggle = page.getByRole("button", { name: "Ocorrências do dia", exact: true });
   if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
   const panel = page.getByRole("complementary", { name: "Ocorrências do dia" });
@@ -242,8 +248,10 @@ test("daily occurrences can be created edited and deleted without a task", async
 test("occurrence conflict preserves draft and cancel never saves", async ({ page }) => {
   const store = await setup(page);
   await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
   const toggle = page.getByRole("button", { name: "Ocorrências do dia", exact: true });
   if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await page.getByLabel("Data das ocorrências").fill("2026-09-05");
   await page.getByRole("button", { name: "Editar ocorrência 1" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("textbox", { name: "Anotação", exact: true }).fill("Meu texto em edição");
@@ -260,6 +268,7 @@ test("occurrence conflict preserves draft and cancel never saves", async ({ page
 test("filter by any assignee and clear assignments in either view", async ({ page }, testInfo) => {
   await setup(page);
   await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
   await page.getByRole("button", { name: "Editar Preparar documentos" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("checkbox", { name: "Administrativo", exact: true })).toBeChecked();
@@ -283,4 +292,112 @@ test("filter by any assignee and clear assignments in either view", async ({ pag
   await navigate(page, "Tarefas");
   await page.getByRole("combobox", { name: "Responsável", exact: true }).selectOption("unassigned");
   await expect(page.getByRole("status")).toHaveText("2 de 2 tarefas");
+});
+
+for (const [shift, label] of [["MORNING", "Manhã"], ["AFTERNOON", "Tarde"], ["NIGHT", "Noite"]]) {
+  test(`shift ${shift} saves without hours and retains dates when editing`, async ({ page }, testInfo) => {
+    const store = await setup(page);
+    await page.goto("/tarefas");
+  await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
+    await page.getByRole("button", { name: "Nova tarefa" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Título", { exact: true }).fill(`Tarefa ${label}`);
+    await dialog.getByLabel("Dia inteiro", { exact: true }).uncheck();
+    await expect(dialog.getByRole("combobox", { name: "Período", exact: true })).toHaveValue("");
+    await dialog.getByRole("combobox", { name: "Período", exact: true }).selectOption(shift);
+    await dialog.getByLabel("Data inicial", { exact: true }).fill("2026-09-05");
+    await dialog.getByLabel("Data final", { exact: true }).fill("2026-09-07");
+    await expect(dialog.getByLabel("Início", { exact: true })).toHaveCount(0);
+    await dialog.getByRole("combobox", { name: "Período", exact: true }).selectOption("CUSTOM");
+    await dialog.getByLabel("Início", { exact: true }).fill("2026-09-05T10:15");
+    await dialog.getByLabel("Término", { exact: true }).fill("2026-09-07T11:30");
+    await dialog.getByRole("combobox", { name: "Período", exact: true }).selectOption(shift);
+    await dialog.getByLabel("Dia inteiro", { exact: true }).check();
+    await dialog.getByLabel("Dia inteiro", { exact: true }).uncheck();
+    await expect(dialog.getByLabel("Data final", { exact: true })).toHaveValue("2026-09-07");
+    await dialog.getByRole("combobox", { name: "Período", exact: true }).selectOption("CUSTOM");
+    await expect(dialog.getByLabel("Início", { exact: true })).toHaveValue("2026-09-05T10:15");
+    await expect(dialog.getByLabel("Término", { exact: true })).toHaveValue("2026-09-07T11:30");
+    await dialog.getByRole("combobox", { name: "Período", exact: true }).selectOption(shift);
+    await page.screenshot({ path: testInfo.outputPath(`shift-${shift}-editor.png`), fullPage: true });
+    await dialog.getByRole("button", { name: "Criar tarefa" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(store.items().find((item) => item.title === `Tarefa ${label}`)?.shift).toBe(shift);
+    await page.getByRole("button", { name: `Editar Tarefa ${label}`, exact: true }).click();
+    await expect(dialog.getByRole("combobox", { name: "Período", exact: true })).toHaveValue(shift);
+    await expect(dialog.getByLabel("Data final", { exact: true })).toHaveValue("2026-09-07");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await navigate(page, "Agenda");
+    // Use month view also on mobile, whose default is a list.
+    await page.getByRole("tab", { name: "Visualizar o mês", exact: true }).click();
+    await expect(page.getByText(`${label} · Tarefa ${label}`, { exact: true })).toHaveCount(3);
+    await page.screenshot({ path: testInfo.outputPath(`shift-${shift}-month.png`), fullPage: true });
+    await page.getByText(`${label} · Tarefa ${label}`, { exact: true }).last().click();
+    await expect(dialog).toContainText(`05/09/2026 a 07/09/2026 · ${label}`);
+    await dialog.getByRole("button", { name: "Concluir", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Reabrir", exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Fechar", exact: true }).click();
+    for (const view of ["semana", "dia", "lista"]) {
+      await page.getByRole("tab", { name: `Visualizar o ${view}`, exact: true }).click();
+      await expect(page.getByText(`${label} · Tarefa ${label}`, { exact: true }).first()).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath(`shift-${shift}-${view}.png`), fullPage: true });
+    }
+    await page.getByText(`${label} · Tarefa ${label}`, { exact: true }).first().click();
+    await dialog.getByRole("button", { name: "Editar", exact: true }).click();
+    await dialog.getByRole("combobox", { name: "Período", exact: true }).selectOption("CUSTOM");
+    await dialog.getByRole("button", { name: "Salvar alterações" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(store.items().find((item) => item.title === `Tarefa ${label}`)?.shift).toBeNull();
+  });
+}
+
+test("tasks open on today with daily totals, navigation and optional month view", async ({ page }, testInfo) => {
+  await setup(page);
+  await page.goto("/tarefas");
+  const view = page.getByRole("combobox", { name: "Visualização", exact: true });
+  await expect(view).toHaveValue("DAY");
+  await expect(page.getByLabel("Data das tarefas", { exact: true })).toHaveValue("2026-09-05");
+  await expect(page.getByRole("status")).toHaveText("1 de 1 tarefas");
+  await expect(page.getByRole("region", { name: "Totais do dia" })).toContainText("1");
+  await expect(page.getByRole("button", { name: "Conferir materiais", exact: true })).toHaveCount(0);
+  await page.getByLabel("Buscar tarefa").fill("sem resultado");
+  await expect(page.getByRole("status")).toHaveText("0 de 1 tarefas");
+  await page.getByRole("button", { name: "Limpar filtros" }).click();
+  await expect(view).toHaveValue("DAY");
+  await page.screenshot({ path: testInfo.outputPath("tasks-daily.png"), fullPage: true });
+  await page.getByRole("button", { name: "Próximo dia", exact: true }).click();
+  await expect(page.getByText("Nenhuma tarefa neste dia.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Nova tarefa", exact: true }).click();
+  await expect(page.getByLabel("Data inicial", { exact: true })).toHaveValue("2026-09-06");
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await page.getByRole("button", { name: "Dia anterior", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("1 de 1 tarefas");
+  await view.selectOption("MONTH");
+  await expect(page.getByRole("status")).toHaveText("2 de 2 tarefas");
+  await expect(page.getByRole("region", { name: "Totais do mês" })).toContainText("2");
+  await view.selectOption("DAY");
+  await expect(page.getByLabel("Data das tarefas", { exact: true })).toHaveValue("2026-09-05");
+  await page.getByLabel("Data das tarefas", { exact: true }).fill("2026-08-31");
+  await page.getByRole("button", { name: "Próximo dia", exact: true }).click();
+  await expect(page.getByLabel("Data das tarefas", { exact: true })).toHaveValue("2026-09-01");
+  await expect(page.getByRole("button", { name: "Conferir materiais", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Próximo dia", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Conferir materiais", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Hoje", exact: true }).click();
+  await expect(page.getByLabel("Data das tarefas", { exact: true })).toHaveValue("2026-09-05");
+  await page.reload();
+  await expect(view).toHaveValue("DAY");
+});
+
+test("daily tasks respect institution timezone and multi-day nighttime boundaries", async ({ page }) => {
+  const store = await setup(page);
+  await page.clock.setFixedTime(new Date("2026-09-06T01:00:00Z"));
+  store.items().push({ ...seed[0], id: "night", title: "Turno noturno", allDay: false, shift: "NIGHT",
+    startAt: "2026-09-04T21:00:00Z", endAt: "2026-09-06T03:00:00Z" });
+  await page.goto("/tarefas");
+  await expect(page.getByLabel("Data das tarefas", { exact: true })).toHaveValue("2026-09-05");
+  await expect(page.getByRole("status")).toHaveText("2 de 2 tarefas");
+  await expect(page.getByRole("button", { name: "Turno noturno", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Próximo dia", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Turno noturno", exact: true })).toHaveCount(0);
 });

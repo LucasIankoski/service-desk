@@ -4,7 +4,6 @@ export type TicketStatus =
   | "IN_PROGRESS"
   | "WAITING_REQUESTER"
   | "RESOLVED";
-export type Priority = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
 export type CommentVisibility = "PUBLIC" | "INTERNAL";
 export type NotificationType =
   | "ASSIGNED"
@@ -16,6 +15,7 @@ export type NotificationType =
 export type AttachmentScanStatus = "NOT_SCANNED" | "CLEAN" | "INFECTED" | "ERROR";
 export type AgendaItemKind = "INTERNAL_DEMAND" | "INSTITUTION_EVENT";
 export type AgendaItemPriority = "LOW" | "MEDIUM" | "HIGH";
+export type AgendaShift = "MORNING" | "AFTERNOON" | "NIGHT";
 export type AgendaItemStatus = "PENDING" | "COMPLETED";
 
 export type Page<T> = {
@@ -77,7 +77,6 @@ export type PublicSettings = {
 export type AdminSettings = PublicSettings & {
   attachmentLimitMb: number;
   reopenDays: number;
-  deadlineWarningHours: number;
   loginBackgroundConfigured: boolean;
   smtp: {
     host?: string | null;
@@ -106,16 +105,13 @@ export type Attachment = {
 export type TicketSummary = {
   id: string;
   publicNumber: string;
-  subject: string;
   status: TicketStatus;
-  priority: Priority;
   requesterId: string;
   requesterName?: string | null;
   assigneeId?: string | null;
   assigneeName?: string | null;
   categoryId?: string | null;
   categoryName?: string | null;
-  dueAt?: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -148,6 +144,7 @@ export type Notification = {
 };
 
 export type AgendaItem = {
+  shift?: AgendaShift | null;
   id: string;
   kind: AgendaItemKind;
   priority?: AgendaItemPriority | null;

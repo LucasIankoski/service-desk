@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TicketServiceTests {
 
     @Autowired TicketService tickets;
+    @Autowired TicketRepository repository;
     @Autowired CategoryService categories;
     @Autowired IdentityService identity;
 
@@ -35,7 +36,7 @@ class TicketServiceTests {
         var requester = user("requester", Role.REQUESTER);
         var otherRequester = user("other", Role.REQUESTER);
 
-        var ticket = tickets.create("Impressora sem toner", "A impressora da recepção parou.", null,
+        var ticket = tickets.create("A impressora da recepção parou.", categoryId(),
                 List.of(), requester);
 
         assertThat(ticket.publicNumber()).startsWith("SD-");
@@ -49,8 +50,9 @@ class TicketServiceTests {
     void categoryIsRequiredBeforeWorkStarts() {
         var requester = user("requester-work", Role.REQUESTER);
         var agent = user("agent-work", Role.AGENT);
-        var ticket = tickets.create("Acesso ao sistema", "Preciso acessar o módulo financeiro.", null,
-                List.of(), requester);
+        var legacy = repository.saveAndFlush(new Ticket("SD-LEGACY-" + UUID.randomUUID().toString().substring(0, 8),
+                requester.id(), "Preciso acessar o módulo financeiro.", null));
+        var ticket = tickets.detail(legacy.id(), requester);
         ticket = tickets.assign(ticket.id(), agent.id(), ticket.version(), agent);
 
         var assigned = ticket;
@@ -75,7 +77,7 @@ class TicketServiceTests {
     @Test
     void requesterCannotCreateInternalNote() {
         var requester = user("requester-note", Role.REQUESTER);
-        var ticket = tickets.create("Atualizar cadastro", "Meu telefone mudou.", null, List.of(), requester);
+        var ticket = tickets.create("Meu telefone mudou.", categoryId(), List.of(), requester);
 
         assertThatThrownBy(() -> tickets.comment(ticket.id(), "nota privada",
                 CommentVisibility.INTERNAL, List.of(), requester))
@@ -90,7 +92,7 @@ class TicketServiceTests {
         var file = new MockMultipartFile("files", "evidence.txt", "text/plain",
                 "Evidence for the ticket".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-        var ticket = tickets.create("Anexo sem varredura", "Segue evidência.", null,
+        var ticket = tickets.create("Segue evidência.", categoryId(),
                 List.of(file), requester);
         var attachments = tickets.detail(ticket.id(), requester).attachments();
 
@@ -108,7 +110,7 @@ class TicketServiceTests {
         var html = new MockMultipartFile("files", "payload.html", "text/html",
                 "<script>alert(1)</script>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-        assertThatThrownBy(() -> tickets.create("Arquivo suspeito", "Segue anexo.", null, List.of(html),
+        assertThatThrownBy(() -> tickets.create("Segue anexo.", categoryId(), List.of(html),
                 requester))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Tipo de arquivo");
@@ -119,16 +121,16 @@ class TicketServiceTests {
         var requester = user("requester-flow", Role.REQUESTER);
         var agent = user("agent-flow", Role.AGENT);
         var category = categories.create("Infraestrutura " + UUID.randomUUID(), agent.id());
-        var ticket = tickets.create("VPN instável", "A conexão cai a cada 10 minutos.", null,
+        var ticket = tickets.create("A conexão cai a cada 10 minutos.", categoryId(),
                 List.of(), requester);
 
         ticket = tickets.assign(ticket.id(), agent.id(), ticket.version(), agent);
-        ticket = tickets.classify(ticket.id(), category.id(), Priority.HIGH, null, ticket.version(), agent);
+        ticket = tickets.classify(ticket.id(), category.id(), ticket.version(), agent);
         ticket = tickets.transition(ticket.id(), TicketStatus.IN_PROGRESS, ticket.version(), agent);
         ticket = tickets.transition(ticket.id(), TicketStatus.RESOLVED, ticket.version(), agent);
 
         assertThat(ticket.status()).isEqualTo(TicketStatus.RESOLVED);
-        assertThat(ticket.priority()).isEqualTo(Priority.HIGH);
+        assertThat(ticket.categoryId()).isEqualTo(category.id());
     }
 
     @Test
@@ -136,9 +138,9 @@ class TicketServiceTests {
         var requester = user("requester-reopen", Role.REQUESTER);
         var agent = user("agent-reopen", Role.AGENT);
         var category = categories.create("Rede " + UUID.randomUUID(), agent.id());
-        var ticket = tickets.create("VPN bloqueada", "A VPN não conecta desde cedo.", null, List.of(), requester);
+        var ticket = tickets.create("A VPN não conecta desde cedo.", categoryId(), List.of(), requester);
         ticket = tickets.assign(ticket.id(), agent.id(), ticket.version(), agent);
-        ticket = tickets.classify(ticket.id(), category.id(), Priority.NORMAL, null, ticket.version(), agent);
+        ticket = tickets.classify(ticket.id(), category.id(), ticket.version(), agent);
         ticket = tickets.transition(ticket.id(), TicketStatus.IN_PROGRESS, ticket.version(), agent);
         ticket = tickets.transition(ticket.id(), TicketStatus.RESOLVED, ticket.version(), agent);
 
@@ -150,7 +152,7 @@ class TicketServiceTests {
     @Test
     void requesterCannotRefreshTheReopenWindowWithSameStatus() {
         var requester = user("requester-same-status", Role.REQUESTER);
-        var ticket = tickets.create("Status indevido", "Tentativa de manter o mesmo estado.", null,
+        var ticket = tickets.create("Tentativa de manter o mesmo estado.", categoryId(),
                 List.of(), requester);
 
         assertThatThrownBy(() -> tickets.transition(ticket.id(), TicketStatus.OPEN, ticket.version(), requester))
@@ -162,7 +164,7 @@ class TicketServiceTests {
     void internalNotesAndTheirAttachmentsStayHiddenFromRequester() {
         var requester = user("requester-private", Role.REQUESTER);
         var agent = user("agent-private", Role.AGENT);
-        var ticket = tickets.create("Análise interna", "Há dados para o atendimento.", null,
+        var ticket = tickets.create("Há dados para o atendimento.", categoryId(),
                 List.of(), requester);
         var text = new MockMultipartFile("files", "evidence.txt", "text/plain", "internal".getBytes());
 
@@ -181,10 +183,27 @@ class TicketServiceTests {
         var fakeOffice = new MockMultipartFile("files", "archive.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fakeZip());
 
-        assertThatThrownBy(() -> tickets.create("Arquivo renomeado", "O ZIP não é um DOCX válido.", null,
+        assertThatThrownBy(() -> tickets.create("O ZIP não é um DOCX válido.", categoryId(),
                 List.of(fakeOffice), requester))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("documento Office válido");
+    }
+
+    private UUID categoryId() {
+        return categories.create("Categoria " + UUID.randomUUID(), null).id();
+    }
+
+    @Test
+    void creationRequiresAnActiveCategory() {
+        var requester = user("category-validation", Role.REQUESTER);
+        assertThatThrownBy(() -> tickets.create("Descrição da demanda", null, List.of(), requester))
+                .isInstanceOf(DomainException.class).hasMessageContaining("categoria");
+        assertThatThrownBy(() -> tickets.create("Descrição da demanda", UUID.randomUUID(), List.of(), requester))
+                .isInstanceOf(DomainException.class).hasMessageContaining("inativa");
+        var category = categories.create("Inativa " + UUID.randomUUID(), requester.id());
+        categories.update(category.id(), category.name(), false, requester.id());
+        assertThatThrownBy(() -> tickets.create("Descrição da demanda", category.id(), List.of(), requester))
+                .isInstanceOf(DomainException.class).hasMessageContaining("inativa");
     }
 
     private byte[] fakeZip() throws Exception {

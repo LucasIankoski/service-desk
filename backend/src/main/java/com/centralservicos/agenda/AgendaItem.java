@@ -45,6 +45,8 @@ class AgendaItem {
     private Instant startAt;
     private Instant endAt;
     private boolean allDay;
+    @Enumerated(EnumType.STRING)
+    private AgendaShift shift;
     private UUID createdById;
     @Version
     private Long rowVersion;
@@ -90,6 +92,8 @@ class AgendaItem {
     Instant startAt() { return startAt; }
     Instant endAt() { return endAt; }
     boolean allDay() { return allDay; }
+    AgendaShift shift() { return shift; }
+    void changeShift(AgendaShift shift) { this.shift = shift; }
     Long rowVersion() { return rowVersion; }
     Instant createdAt() { return createdAt; }
     Instant updatedAt() { return updatedAt; }

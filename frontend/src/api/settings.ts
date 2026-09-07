@@ -16,7 +16,6 @@ export function updateGeneralSettings(input: {
   timezoneName: string;
   attachmentLimitMb: number;
   reopenDays: number;
-  deadlineWarningHours: number;
   version: number;
 }) {
   return apiFetch<AdminSettings>("/api/v1/admin/settings/general", {

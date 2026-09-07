@@ -109,15 +109,12 @@ test.beforeEach(async ({ page }) => {
           {
             id: "11111111-1111-1111-1111-111111111111",
             publicNumber: "SD-2026-000001",
-            subject: "Computador não liga",
             status: "IN_PROGRESS",
-            priority: "HIGH",
             requesterId: "00000000-0000-0000-0000-000000000002",
             requesterName: "Maria Silva",
             assigneeId: "00000000-0000-0000-0000-000000000001",
             assigneeName: "Agente Modelo",
             categoryName: "Infraestrutura",
-            dueAt: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             version: 0
@@ -157,7 +154,7 @@ test.beforeEach(async ({ page }) => {
 
 test("ticket queue is responsive and accessible", async ({ page }, testInfo) => {
   await page.goto("/tickets");
-  await expect(page.getByText("Computador não liga")).toBeVisible();
+  await expect(page.getByText("Infraestrutura", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("ticket-queue.png"), fullPage: true });
   await page.addScriptTag({ content: axe.source });
   const violations = await page.evaluate(async () => {
@@ -262,4 +259,50 @@ test("requester agenda is read-only and receives public events", async ({ page }
   await expect(page.getByRole("button", { name: "Novo item" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Demandas" })).toHaveCount(0);
   await expect(page.getByText("Preparar lista de presença")).toHaveCount(0);
+});
+
+
+test("solicitações usam categoria e não exibem assunto, prioridade ou prazo", async ({ page }) => {
+  await page.goto("/tickets");
+  await expect(page.getByRole("link", { name: /Infraestrutura.*SD-2026-000001/ })).toBeVisible();
+  await expect(page.getByLabel("Assunto", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Prioridade", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel(/Prazo/)).toHaveCount(0);
+});
+
+test("abertura informa quando não há categorias", async ({ page }) => {
+  await page.goto("/tickets/new");
+  await expect(page.getByText("Nenhuma categoria disponível. Solicite o cadastro ao administrador.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enviar solicitação" })).toBeDisabled();
+});
+
+test("abre solicitação apenas com categoria e descrição", async ({ page }) => {
+  const categoryId = "33333333-3333-3333-3333-333333333333";
+  const id = "11111111-1111-1111-1111-111111111111";
+  const detail = {
+    id, publicNumber: "SD-2026-000001", categoryId, categoryName: "Infraestrutura",
+    description: "Descrição completa da demanda", status: "OPEN", version: 0,
+    requesterId: "00000000-0000-0000-0000-000000000001", requesterName: "Agente Modelo",
+    attachments: [], comments: []
+  };
+  await page.route("**/api/v1/categories", (route) => route.fulfill({ json: [{ id: categoryId, name: "Infraestrutura" }] }));
+  await page.route("**/api/v1/auth/csrf", (route) => route.fulfill({ json: { token: "test" } }));
+  await page.route(`**/api/v1/tickets/${id}`, (route) => route.fulfill({ json: detail }));
+  let payload = "";
+  await page.route("**/api/v1/tickets", async (route) => {
+    payload = route.request().postData() ?? "";
+    await route.fulfill({ json: detail });
+  });
+  await page.goto("/tickets/new");
+  await expect(page.getByLabel("Assunto", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Descrição", { exact: true }).fill(detail.description);
+  await page.getByRole("button", { name: "Enviar solicitação" }).click();
+  expect(payload).toBe("");
+  await page.getByRole("combobox", { name: /^Categoria/ }).selectOption(categoryId);
+  await page.getByRole("button", { name: "Enviar solicitação" }).click();
+  await expect(page.getByRole("heading", { name: "Infraestrutura", exact: true })).toBeVisible();
+  expect(payload).toContain('name="metadata"');
+  expect(payload).not.toMatch(/"(?:subject|priority|dueAt)"/);
+  await expect(page.getByLabel("Prioridade", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Prazo", { exact: true })).toHaveCount(0);
 });

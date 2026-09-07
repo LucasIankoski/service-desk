@@ -7,13 +7,12 @@ import { useNavigate } from "react-router";
 import { z } from "zod";
 import { createTicket, listCategories } from "../api/tickets";
 import { Button } from "../components/Button";
-import { Field, SelectInput, TextArea, TextInput } from "../components/FormField";
+import { Field, SelectInput, TextArea } from "../components/FormField";
 import styles from "./NewTicketPage.module.css";
 
 const schema = z.object({
-  subject: z.string().min(4, "Informe um assunto objetivo.").max(160),
   description: z.string().min(10, "Descreva a demanda com mais detalhes.").max(8000),
-  categoryId: z.string().optional()
+  categoryId: z.string().min(1, "Selecione uma categoria.")
 });
 
 type TicketForm = z.infer<typeof schema>;
@@ -25,7 +24,7 @@ export default function NewTicketPage() {
   const [files, setFiles] = useState<File[]>([]);
   const form = useForm<TicketForm>({
     resolver: zodResolver(schema),
-    defaultValues: { subject: "", description: "", categoryId: "" }
+    defaultValues: { description: "", categoryId: "" }
   });
   const mutation = useMutation({
     mutationFn: (value: TicketForm) => createTicket({ ...value, files }),
@@ -42,19 +41,16 @@ export default function NewTicketPage() {
         <h2>Abrir solicitação</h2>
       </header>
       <form className={styles.form} onSubmit={form.handleSubmit((value) => mutation.mutate(value))}>
-        <Field label="Assunto" error={form.formState.errors.subject?.message}>
-          <TextInput {...form.register("subject")} placeholder="Ex.: Computador não liga" />
+        <Field label="Categoria" error={form.formState.errors.categoryId?.message}>
+          <SelectInput {...form.register("categoryId")} required disabled={!categories.isSuccess || !categories.data.length}>
+            <option value="">Selecione</option>
+            {categories.data?.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </SelectInput>
         </Field>
+        {categories.isError ? <p className={styles.error} role="alert">Não foi possível carregar as categorias.</p> : null}
+        {categories.isSuccess && !categories.data.length ? <p role="alert">Nenhuma categoria disponível. Solicite o cadastro ao administrador.</p> : null}
         <Field label="Descrição" error={form.formState.errors.description?.message}>
           <TextArea {...form.register("description")} placeholder="Inclua impacto, local, horário e qualquer evidência útil." />
-        </Field>
-        <Field label="Categoria">
-          <SelectInput {...form.register("categoryId")}>
-            <option value="">Definir depois</option>
-            {categories.data?.map((category) => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </SelectInput>
         </Field>
         <Field label="Anexos">
           <label className={styles.files}>
@@ -69,7 +65,7 @@ export default function NewTicketPage() {
         </Field>
         {mutation.error ? <p className={styles.error} role="alert">{mutation.error.message}</p> : null}
         <div className={styles.actions}>
-          <Button type="submit" variant="primary" icon={<Send />} disabled={mutation.isPending}>
+          <Button type="submit" variant="primary" icon={<Send />} disabled={mutation.isPending || !categories.isSuccess || !categories.data.length}>
             Enviar solicitação
           </Button>
         </div>

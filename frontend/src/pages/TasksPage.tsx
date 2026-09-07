@@ -10,7 +10,7 @@ import { usePublicSettings } from "../app/PublicSettingsContext";
 import { ItemDetails, ItemEditor, priorityLabels, type EditorState } from "../components/AgendaItemDialogs";
 import { Button } from "../components/Button";
 import { Field, SelectInput, TextInput } from "../components/FormField";
-import { defaultAgendaPeriod, periodFieldsFromInstants } from "../components/agendaDateTime";
+import { defaultAgendaPeriod, periodFieldsFromInstants, shiftLabels } from "../components/agendaDateTime";
 import { useSession } from "../hooks/useSession";
 import { TaskOccurrencesPanel } from "../components/TaskOccurrencesPanel";
 import styles from "./TasksPage.module.css";
@@ -20,9 +20,13 @@ export default function TasksPage() {
   const settings = usePublicSettings();
   const timeZone = settings?.timezoneName ?? "America/Sao_Paulo";
   const canAccess = !!session.data?.roles.includes("MANAGER");
-  const today = Temporal.Now.zonedDateTimeISO(timeZone).toPlainDate();
+  const today = Temporal.Instant.fromEpochMilliseconds(Date.now()).toZonedDateTimeISO(timeZone).toPlainDate();
   const currentMonth = today.toPlainYearMonth().toString();
-  const [month, setMonth] = useState(currentMonth);
+  const [view, setView] = useState<"DAY" | "MONTH">("DAY");
+  const [selectedDate, setSelectedDate] = useState(today.toString());
+  const date = Temporal.PlainDate.from(selectedDate);
+  const month = date.toPlainYearMonth().toString();
+  const daily = view === "DAY";
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState("");
   const [status, setStatus] = useState("");
@@ -31,8 +35,9 @@ export default function TasksPage() {
   const [editor, setEditor] = useState<EditorState>();
   const queryClient = useQueryClient();
   const monthDate = Temporal.PlainYearMonth.from(month).toPlainDate({ day: 1 });
-  const start = monthDate.toZonedDateTime(timeZone).toInstant().toString();
-  const end = monthDate.add({ months: 1 }).toZonedDateTime(timeZone).toInstant().toString();
+  const periodStart = daily ? date : monthDate;
+  const start = periodStart.toZonedDateTime(timeZone).toInstant().toString();
+  const end = periodStart.add(daily ? { days: 1 } : { months: 1 }).toZonedDateTime(timeZone).toInstant().toString();
   const agenda = useQuery({ queryKey: ["agenda-items", start, end], queryFn: () => listAgendaItems(start, end), enabled: canAccess });
   const managers = useQuery({ queryKey: ["agenda-managers"], queryFn: listManagers, enabled: canAccess });
   const items = (agenda.data ?? []).filter((item) => item.kind === "INTERNAL_DEMAND");
@@ -54,32 +59,44 @@ export default function TasksPage() {
   });
   function edit(item: AgendaItem) {
     setSelectedId(undefined);
-    setEditor({ item, period: periodFieldsFromInstants(item.startAt, item.endAt, item.allDay, timeZone) });
+    setEditor({ item, period: periodFieldsFromInstants(item.startAt, item.endAt, item.allDay, timeZone, item.shift) });
   }
   function create() {
-    const date = month === currentMonth ? today.toString() : monthDate.toString();
+    const date = daily ? selectedDate : month === currentMonth ? today.toString() : monthDate.toString();
     setEditor({ period: { ...defaultAgendaPeriod(timeZone), startDate: date, endDate: date } });
   }
-  function moveMonth(amount: number) { setMonth(monthDate.add({ months: amount }).toPlainYearMonth().toString()); }
+  function movePeriod(amount: number) {
+    setSelectedDate(date.add(daily ? { days: amount } : { months: amount }).toString());
+  }
+  function changePeriod(value: string) {
+    try {
+      if (daily && /^\d{4}-\d{2}-\d{2}$/.test(value)) setSelectedDate(Temporal.PlainDate.from(value).toString());
+      if (!daily && /^\d{4}-\d{2}$/.test(value)) {
+        const next = Temporal.PlainYearMonth.from(value);
+        setSelectedDate(date.with({ year: next.year, month: next.month }).toString());
+      }
+    } catch { /* Keep the current period while the date input is incomplete or invalid. */ }
+  }
   if (!canAccess) return <Navigate to="/tickets" replace />;
   const count = (value: number) => agenda.data ? value : "—";
   return <section className={styles.page}>
     <header className={styles.heading}>
-      <div><span>Planejamento institucional</span><h2>Tarefas</h2><p>Organize as demandas internas e acompanhe o andamento do mês.</p></div>
+      <div><span>Planejamento institucional</span><h2>Tarefas</h2><p>Organize as demandas internas e acompanhe o andamento das tarefas.</p></div>
       <Button variant="primary" icon={<Plus />} onClick={create}>Nova tarefa</Button>
     </header>
     <div className={styles.monthBar} aria-label="Período das tarefas">
-      <Button icon={<ChevronLeft />} aria-label="Mês anterior" onClick={() => moveMonth(-1)} />
-      <Field label="Mês e ano"><TextInput type="month" value={month} onChange={(event) => {
-        if (/^\d{4}-\d{2}$/.test(event.target.value)) setMonth(event.target.value);
-      }} /></Field>
-      <Button icon={<ChevronRight />} aria-label="Próximo mês" onClick={() => moveMonth(1)} />
-      <Button onClick={() => setMonth(currentMonth)}>Mês atual</Button>
+      <Field label="Visualização"><SelectInput value={view} onChange={(event) => setView(event.target.value as "DAY" | "MONTH")}>
+        <option value="DAY">Dia</option><option value="MONTH">Mês</option>
+      </SelectInput></Field>
+      <Button icon={<ChevronLeft />} aria-label={daily ? "Dia anterior" : "Mês anterior"} onClick={() => movePeriod(-1)} />
+      <Field label={daily ? "Data das tarefas" : "Mês e ano"}><TextInput type={daily ? "date" : "month"} value={daily ? selectedDate : month} onChange={(event) => changePeriod(event.target.value)} /></Field>
+      <Button icon={<ChevronRight />} aria-label={daily ? "Próximo dia" : "Próximo mês"} onClick={() => movePeriod(1)} />
+      <Button onClick={() => setSelectedDate(today.toString())}>{daily ? "Hoje" : "Mês atual"}</Button>
     </div>
-    <section aria-label="Totais do mês" className={styles.summary}>
-      <article><span>Tarefas registradas</span><strong>{count(items.length)}</strong><small>Total do mês</small></article>
-      <article className={styles.completed}><span>Concluídas</span><strong>{count(completed)}</strong><small>Total do mês</small></article>
-      <article className={styles.pending}><span>Pendentes</span><strong>{count(items.length - completed)}</strong><small>Total do mês</small></article>
+    <section aria-label={daily ? "Totais do dia" : "Totais do mês"} className={styles.summary}>
+      <article><span>Tarefas registradas</span><strong>{count(items.length)}</strong><small>{daily ? "Total do dia" : "Total do mês"}</small></article>
+      <article className={styles.completed}><span>Concluídas</span><strong>{count(completed)}</strong><small>{daily ? "Total do dia" : "Total do mês"}</small></article>
+      <article className={styles.pending}><span>Pendentes</span><strong>{count(items.length - completed)}</strong><small>{daily ? "Total do dia" : "Total do mês"}</small></article>
     </section>
     <div className={styles.filters} aria-label="Filtros das tarefas">
       <Field label="Buscar tarefa"><TextInput type="search" placeholder="Título ou observações" value={search} onChange={(event) => setSearch(event.target.value)} /></Field>
@@ -92,16 +109,16 @@ export default function TasksPage() {
     {agenda.error ? <div role="alert" className={styles.error}>{agenda.error.message} <Button onClick={() => agenda.refetch()}>Tentar novamente</Button></div> : null}
     <div className={styles.dailyWorkspace}>
     <div className={styles.tablePanel}>
-      <div className={styles.tableHeading}><strong>Demandas do mês</strong><span role="status">{agenda.isFetching ? "Carregando tarefas…" : `${visible.length} de ${items.length} tarefas`}</span></div>
+      <div className={styles.tableHeading}><strong>{daily ? "Demandas do dia" : "Demandas do mês"}</strong><span role="status">{agenda.isFetching ? "Carregando tarefas…" : `${visible.length} de ${items.length} tarefas`}</span></div>
       <div className={styles.tableScroll} role="region" aria-label="Tabela de tarefas" tabIndex={0} aria-busy={agenda.isFetching}>
         <table>
           <thead><tr>{["Data", "Dia da semana", "Tarefa", "Prioridade", "Status", "Horário", "Responsáveis", "Observações", "Ações"].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
           <tbody>{visible.map((item) => {
             const startDate = new Date(item.startAt);
-            const fields = periodFieldsFromInstants(item.startAt, item.endAt, item.allDay, timeZone);
+            const fields = periodFieldsFromInstants(item.startAt, item.endAt, item.allDay, timeZone, item.shift);
             const multiDay = fields.startDate !== fields.endDate;
             const date = new Intl.DateTimeFormat("pt-BR", { timeZone, dateStyle: "short" }).format(startDate);
-            const time = item.allDay ? "Dia inteiro" : new Intl.DateTimeFormat("pt-BR", { timeZone, hour: "2-digit", minute: "2-digit" });
+            const time = item.allDay ? "Dia inteiro" : item.shift ? shiftLabels[item.shift] : new Intl.DateTimeFormat("pt-BR", { timeZone, hour: "2-digit", minute: "2-digit" });
             return <tr key={item.id}>
               <td>{date}{multiDay ? <> a {fields.endDate.split("-").reverse().join("/")}</> : null}</td>
               <td>{new Intl.DateTimeFormat("pt-BR", { timeZone, weekday: "long" }).format(startDate)}</td>
@@ -115,7 +132,7 @@ export default function TasksPage() {
             </tr>;
           })}</tbody>
         </table>
-        {!agenda.isLoading && !agenda.error && !visible.length ? <p className={styles.empty}>{items.length ? "Nenhuma tarefa corresponde aos filtros." : "Nenhuma tarefa neste mês. Crie uma tarefa para começar."}</p> : null}
+        {!agenda.isLoading && !agenda.error && !visible.length ? <p className={styles.empty}>{items.length ? "Nenhuma tarefa corresponde aos filtros." : daily ? "Nenhuma tarefa neste dia. Crie uma tarefa para começar." : "Nenhuma tarefa neste mês. Crie uma tarefa para começar."}</p> : null}
       </div>
     </div>
     <TaskOccurrencesPanel key={month} month={month} timeZone={timeZone} />

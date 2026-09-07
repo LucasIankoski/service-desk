@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-agenda-shift
+      author: service-desk-team
+      changes:
+        - addColumn:
+            tableName: agenda_item
+            columns:
+              - column: { name: shift, type: varchar(16) }

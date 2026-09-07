@@ -28,6 +28,7 @@
 button.badge { cursor: pointer; }
 button.badge:disabled { cursor: wait; opacity: .7; }
 .completed { background: color-mix(in srgb, var(--color-accent), var(--color-surface) 89%); }
+.badge.completed { background: #15803d; border-color: #15803d; color: #fff; }
 .pending, .MEDIUM { background: color-mix(in srgb, var(--color-warning), var(--color-surface) 85%); }
 .HIGH { background: color-mix(in srgb, var(--color-danger), var(--color-surface) 90%); }
 .LOW { background: var(--color-canvas); }

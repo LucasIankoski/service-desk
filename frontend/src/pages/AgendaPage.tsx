@@ -18,7 +18,8 @@ import type { AgendaItemKind } from "../api/types";
 import { Button } from "../components/Button";
 import {
   defaultAgendaPeriod,
-  instantToCalendarValue,
+  agendaCalendarBlocks,
+  shiftLabels,
   periodFieldsFromInstants,
   periodFieldsFromSelection,
 } from "../components/agendaDateTime";
@@ -54,18 +55,15 @@ export default function AgendaPage() {
     return !(hideCompleted && item.status === "COMPLETED");
   }), [agenda.data, hideCompleted, kindFilter]);
 
-  const calendarEvents = useMemo<EventInput[]>(() => visibleItems.map((item) => ({
-    id: item.id,
-    title: item.title,
-    start: instantToCalendarValue(item.startAt, item.allDay, timeZone),
-    end: instantToCalendarValue(item.endAt, item.allDay, timeZone),
-    allDay: item.allDay,
+  const calendarEvents = useMemo<EventInput[]>(() => visibleItems.flatMap((item) => agendaCalendarBlocks(item, timeZone, range).map((block) => ({
+    ...block,
+    title: item.shift ? `${shiftLabels[item.shift]} · ${item.title}` : item.title,
     color: item.kind === "INSTITUTION_EVENT" ? "var(--color-accent)" : "var(--color-primary)",
     classNames: [
       item.kind === "INSTITUTION_EVENT" ? styles.eventItem : styles.demandItem,
       item.status === "COMPLETED" ? styles.completedItem : ""
     ].filter(Boolean)
-  })), [timeZone, visibleItems]);
+  }))), [timeZone, visibleItems, range]);
 
   if (!canAccess) return <Navigate to="/tickets" replace />;
 
@@ -84,7 +82,7 @@ export default function AgendaPage() {
   }
 
   function onEventClick(info: EventClickInfo) {
-    const item = agenda.data?.find((candidate) => candidate.id === info.event.id);
+    const item = agenda.data?.find((candidate) => candidate.id === info.event.extendedProps.itemId);
     if (item) setSelectedId(item.id);
   }
 
@@ -159,7 +157,7 @@ export default function AgendaPage() {
         onClose={() => setSelectedId(undefined)}
         onEdit={(item) => {
           setSelectedId(undefined);
-          setEditor({ item, period: periodFieldsFromInstants(item.startAt, item.endAt, item.allDay, timeZone) });
+          setEditor({ item, period: periodFieldsFromInstants(item.startAt, item.endAt, item.allDay, timeZone, item.shift) });
         }}
         onChanged={() => refresh()}
         onDeleted={() => { refresh(); setSelectedId(undefined); }}

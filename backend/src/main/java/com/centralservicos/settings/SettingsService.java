@@ -46,7 +46,7 @@ public class SettingsService {
     public TicketPolicy ticketPolicy() {
         var settings = required();
         return new TicketPolicy(settings.attachmentLimitMb(), settings.reopenDays(),
-                settings.deadlineWarningHours(), ZoneId.of(settings.timezoneName()));
+                ZoneId.of(settings.timezoneName()));
     }
 
     @Transactional
@@ -54,11 +54,9 @@ public class SettingsService {
         var settings = required();
         assertVersion(settings, request.version());
         validateGeneral(request.institutionName(), request.supportEmail(), request.supportPhone(),
-                request.timezoneName(), request.attachmentLimitMb(), request.reopenDays(),
-                request.deadlineWarningHours());
+                request.timezoneName(), request.attachmentLimitMb(), request.reopenDays());
         settings.updateGeneral(request.institutionName(), request.supportEmail(), request.supportPhone(),
-                request.timezoneName(), request.attachmentLimitMb(), request.reopenDays(),
-                request.deadlineWarningHours());
+                request.timezoneName(), request.attachmentLimitMb(), request.reopenDays());
         audit.record(actorId, "SETTINGS_GENERAL_UPDATED", "AppSettings", AppSettings.SINGLETON_ID, null);
         return toAdmin(settings);
     }
@@ -135,8 +133,7 @@ public class SettingsService {
     }
 
     private void validateGeneral(String institutionName, String supportEmail, String supportPhone,
-                                 String timezoneName, int attachmentLimitMb, int reopenDays,
-                                 int deadlineWarningHours) {
+                                 String timezoneName, int attachmentLimitMb, int reopenDays) {
         if (institutionName == null || institutionName.isBlank() || institutionName.length() > 160) {
             throw DomainException.unprocessable("Informe o nome da instituição com até 160 caracteres.");
         }
@@ -150,9 +147,6 @@ public class SettingsService {
         }
         if (reopenDays < 1 || reopenDays > 30) {
             throw DomainException.unprocessable("A janela de reabertura deve ficar entre 1 e 30 dias.");
-        }
-        if (deadlineWarningHours < 1 || deadlineWarningHours > 168) {
-            throw DomainException.unprocessable("A antecedência de prazo deve ficar entre 1 e 168 horas.");
         }
         if (supportEmail != null && !supportEmail.isBlank()) {
             validateEmail(supportEmail, "E-mail de contato inválido.");
@@ -253,7 +247,7 @@ public class SettingsService {
     private AdminSettingsView toAdmin(AppSettings settings) {
         return new AdminSettingsView(settings.institutionName(), settings.supportEmail(), settings.supportPhone(),
                 settings.timezoneName(), settings.attachmentLimitMb(), settings.reopenDays(),
-                settings.deadlineWarningHours(), theme(settings), settings.loginBackgroundPath() != null,
+                theme(settings), settings.loginBackgroundPath() != null,
                 new AdminSettingsView.SmtpView(settings.smtpHost(), settings.smtpPort(), settings.smtpTls(),
                         settings.smtpFromName(), settings.smtpFromAddress(), settings.smtpUsername(),
                         settings.smtpPasswordEnc() != null),
@@ -267,7 +261,7 @@ public class SettingsService {
 
     public record UpdateGeneralRequest(String institutionName, String supportEmail, String supportPhone,
                                        String timezoneName, int attachmentLimitMb, int reopenDays,
-                                       int deadlineWarningHours, Long version) {
+                                       Long version) {
     }
 
     public record UpdateThemeRequest(ThemeView theme, Long version) {

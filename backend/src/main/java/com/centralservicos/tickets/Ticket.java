@@ -23,16 +23,10 @@ class Ticket {
     private UUID requesterId;
     private UUID assigneeId;
     private UUID categoryId;
-    private String subject;
     @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     private String description;
     @Enumerated(EnumType.STRING)
     private TicketStatus statusName;
-    @Enumerated(EnumType.STRING)
-    private Priority priorityName;
-    private Instant dueAt;
-    private boolean deadlineWarningSent;
-    private boolean overdueSent;
     private Instant firstRespondedAt;
     private Instant resolvedAt;
     @Version
@@ -43,15 +37,13 @@ class Ticket {
     protected Ticket() {
     }
 
-    Ticket(String publicNumber, UUID requesterId, String subject, String description, UUID categoryId) {
+    Ticket(String publicNumber, UUID requesterId, String description, UUID categoryId) {
         this.id = UUID.randomUUID();
         this.publicNumber = publicNumber;
         this.requesterId = requesterId;
-        this.subject = subject.trim();
         this.description = description.trim();
         this.categoryId = categoryId;
         this.statusName = TicketStatus.OPEN;
-        this.priorityName = Priority.NORMAL;
         this.createdAt = Instant.now();
         this.updatedAt = createdAt;
     }
@@ -61,11 +53,8 @@ class Ticket {
     UUID requesterId() { return requesterId; }
     UUID assigneeId() { return assigneeId; }
     UUID categoryId() { return categoryId; }
-    String subject() { return subject; }
     String description() { return description; }
     TicketStatus statusName() { return statusName; }
-    Priority priorityName() { return priorityName; }
-    Instant dueAt() { return dueAt; }
     Instant resolvedAt() { return resolvedAt; }
     Long rowVersion() { return rowVersion; }
     Instant createdAt() { return createdAt; }
@@ -80,24 +69,8 @@ class Ticket {
         touch();
     }
 
-    void classify(UUID categoryId, Priority priority, Instant dueAt) {
+    void classify(UUID categoryId) {
         this.categoryId = categoryId;
-        this.priorityName = priority == null ? Priority.NORMAL : priority;
-        this.dueAt = dueAt;
-        this.deadlineWarningSent = false;
-        this.overdueSent = false;
-        touch();
-    }
-
-    void setPriority(Priority priority) {
-        this.priorityName = priority;
-        touch();
-    }
-
-    void setDueAt(Instant dueAt) {
-        this.dueAt = dueAt;
-        this.deadlineWarningSent = false;
-        this.overdueSent = false;
         touch();
     }
 
@@ -111,16 +84,6 @@ class Ticket {
         if (next == TicketStatus.RESOLVED) {
             resolvedAt = now;
         }
-        touch();
-    }
-
-    void markDeadlineWarningSent() {
-        deadlineWarningSent = true;
-        touch();
-    }
-
-    void markOverdueSent() {
-        overdueSent = true;
         touch();
     }
 

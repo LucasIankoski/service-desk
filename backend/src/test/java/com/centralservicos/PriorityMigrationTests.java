@@ -21,6 +21,7 @@ class PriorityMigrationTests {
 
     static void verifyUpgrade(DataSource dataSource) throws Exception {
         migrate(dataSource, "classpath:db/pre-priority.yml");
+        var ticketFixture = TicketSimplificationMigrationTests.seed(dataSource);
         var jdbc = new JdbcTemplate(dataSource);
         var user = UUID.randomUUID().toString();
         jdbc.update("""
@@ -42,6 +43,9 @@ class PriorityMigrationTests {
         }
         jdbc.update("update agenda_item set assignee_id = ? where id = ?", user, demand);
         migrate(dataSource, "classpath:db/changelog/db.changelog-master.yml");
+        TicketSimplificationMigrationTests.verify(dataSource, ticketFixture);
+        migrate(dataSource, "classpath:db/changelog/db.changelog-master.yml");
+        TicketSimplificationMigrationTests.verify(dataSource, ticketFixture);
         assertThat(jdbc.queryForObject("select assignee_id from agenda_item_assignee where agenda_item_id = ?", String.class, demand)).isEqualTo(user);
         assertThat(jdbc.queryForObject("select count(*) from agenda_item_assignee where agenda_item_id = ?", Integer.class, event)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from agenda_occurrence", Integer.class)).isZero();

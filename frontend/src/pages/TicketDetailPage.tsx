@@ -6,19 +6,18 @@ import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router";
 import { z } from "zod";
 import { addComment, assignTicket, classifyTicket, getTicket, listAssignees, listCategories, updateStatus } from "../api/tickets";
-import type { CommentVisibility, Priority, TicketStatus } from "../api/types";
+import type { CommentVisibility, TicketStatus } from "../api/types";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Field, SelectInput, TextArea, TextInput } from "../components/FormField";
 import { StatusTrail } from "../components/StatusTrail";
-import { formatDateTime, priorityLabel, priorityTone, statusLabel, statusTone } from "../components/ticketPresentation";
+import { formatDateTime, statusLabel, statusTone } from "../components/ticketPresentation";
 import { useSession } from "../hooks/useSession";
 import styles from "./TicketDetailPage.module.css";
 
 const commentSchema = z.object({ body: z.string().min(2).max(4000), visibility: z.enum(["PUBLIC", "INTERNAL"]) });
 type CommentForm = z.infer<typeof commentSchema>;
 
-const priorities: Priority[] = ["LOW", "NORMAL", "HIGH", "CRITICAL"];
 
 export default function TicketDetailPage() {
   const { id = "" } = useParams();
@@ -47,8 +46,6 @@ export default function TicketDetailPage() {
   const mutateClassify = useMutation({
     mutationFn: (form: FormData) => classifyTicket(id, {
       categoryId: String(form.get("categoryId")),
-      priority: String(form.get("priority")) as Priority,
-      dueAt: String(form.get("dueAt") || "") ? new Date(String(form.get("dueAt"))).toISOString() : null,
       version: ticket.data!.version
     }),
     onSuccess: refresh
@@ -71,12 +68,11 @@ export default function TicketDetailPage() {
       <header className={styles.heading}>
         <div>
           <Link to="/tickets">Solicitações</Link>
-          <h2>{ticket.data.subject}</h2>
+          <h2>{ticket.data.categoryName ?? "Sem categoria"}</h2>
           <p>{ticket.data.publicNumber}</p>
         </div>
         <div className={styles.badges}>
           <Badge tone={statusTone(ticket.data.status)}>{statusLabel(ticket.data.status)}</Badge>
-          <Badge tone={priorityTone(ticket.data.priority)}>{priorityLabel(ticket.data.priority)}</Badge>
         </div>
       </header>
 
@@ -143,7 +139,6 @@ export default function TicketDetailPage() {
             <div><dt>Solicitante</dt><dd>{ticket.data.requesterName}</dd></div>
             <div><dt>Responsável</dt><dd>{ticket.data.assigneeName ?? "Sem responsável"}</dd></div>
             <div><dt>Categoria</dt><dd>{ticket.data.categoryName ?? "Sem categoria"}</dd></div>
-            <div><dt>Prazo</dt><dd>{formatDateTime(ticket.data.dueAt)}</dd></div>
           </dl>
 
           {canOperate && ticket.data.status !== "RESOLVED" ? (
@@ -177,14 +172,6 @@ export default function TicketDetailPage() {
                     <option value="">Selecione</option>
                     {categories.data?.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </SelectInput>
-                </Field>
-                <Field label="Prioridade">
-                  <SelectInput name="priority" defaultValue={ticket.data.priority}>
-                    {priorities.map((priority) => <option key={priority} value={priority}>{priorityLabel(priority)}</option>)}
-                  </SelectInput>
-                </Field>
-                <Field label="Prazo">
-                  <TextInput name="dueAt" type="datetime-local" />
                 </Field>
                 <Button type="submit" variant="secondary">Salvar classificação</Button>
               </form>

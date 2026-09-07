@@ -43,6 +43,19 @@ class DatabaseCompatibilityIT {
                 DockerImageName.parse("mcr.microsoft.com/mssql/server:2022-latest")).acceptLicense());
     }
 
+    @Test
+    void existingTicketUpgradeWorksOnSqlServer() throws Exception {
+        if (!selected("sqlserver")) return;
+        assumeDockerAvailable();
+        try (var database = new MSSQLServerContainer<>(
+                DockerImageName.parse("mcr.microsoft.com/mssql/server:2022-latest")).acceptLicense()) {
+            database.start();
+            var source = new DriverManagerDataSource(database.getJdbcUrl(), database.getUsername(), database.getPassword());
+            source.setDriverClassName(database.getDriverClassName());
+            TicketSimplificationMigrationTests.verifyIsolatedUpgrade(source);
+        }
+    }
+
     private void verifyDatabase(String vendor, Supplier<JdbcDatabaseContainer<?>> databaseSupplier) throws Exception {
         if (!selected(vendor)) {
             return;
@@ -98,10 +111,10 @@ class DatabaseCompatibilityIT {
                 "argon2id-placeholder", true, false, false);
         jdbc.update("""
                 insert into ticket
-                (id, public_number, requester_id, subject, description, status_name, priority_name)
-                values (?, ?, ?, ?, ?, ?, ?)
-                """, ticketId, publicNumber, requesterId, "Compatibility ticket",
-                "Portable schema smoke test", "OPEN", "NORMAL");
+                (id, public_number, requester_id, description, status_name)
+                values (?, ?, ?, ?, ?)
+                """, ticketId, publicNumber, requesterId,
+                "Portable schema smoke test", "OPEN");
         jdbc.update("""
                 insert into ticket_comment
                 (id, ticket_id, author_id, body, visibility_name)

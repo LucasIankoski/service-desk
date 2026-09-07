@@ -5,10 +5,10 @@ import { type FormEvent, useState } from "react";
 import { Temporal } from "temporal-polyfill";
 import { agendaAssignees, changeAgendaItemStatus, createAgendaItem, deleteAgendaItem, updateAgendaItem, type AgendaItemInput } from "../api/agenda";
 import { ApiError } from "../api/http";
-import type { AgendaItem, AgendaItemKind, AgendaItemPriority } from "../api/types";
+import type { AgendaShift, AgendaItem, AgendaItemKind, AgendaItemPriority } from "../api/types";
 import { Button } from "./Button";
 import { Field, SelectInput, TextArea, TextInput } from "./FormField";
-import { formatAgendaPeriod, periodFieldsToInstants, type AgendaPeriodFields } from "./agendaDateTime";
+import { formatAgendaPeriod, periodFieldsToInstants, shiftLabels, type AgendaPeriodFields } from "./agendaDateTime";
 import styles from "./AgendaItemDialogs.module.css";
 
 export type EditorState = { item?: AgendaItem; period: AgendaPeriodFields };
@@ -60,7 +60,7 @@ export function ItemDetails({ item, isManager, timeZone, onClose, onEdit, onChan
               <Dialog.Close className={styles.closeButton} aria-label="Fechar"><X /></Dialog.Close>
             </div>
             <div className={styles.details}>
-              <p><Clock3 aria-hidden /> {formatAgendaPeriod(item.startAt, item.endAt, item.allDay, timeZone)}</p>
+              <p><Clock3 aria-hidden /> {formatAgendaPeriod(item.startAt, item.endAt, item.allDay, timeZone, item.shift)}</p>
               {item.location ? <p><MapPin aria-hidden /> {item.location}</p> : null}
               {item.kind === "INTERNAL_DEMAND" ? <p><UserRound aria-hidden />
                 {agendaAssignees(item).length ? `Responsáveis: ${agendaAssignees(item).map((person) => person.displayName).join(", ")}` : "Sem responsável"}
@@ -113,6 +113,22 @@ export function ItemEditor({ state, managers, timeZone, onClose, onSaved, taskMo
   const available = new Map([...agendaAssignees(state.item), ...managers].map((person) => [person.id, person]));
   const options = [...available.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, "pt-BR"));
   const [allDay, setAllDay] = useState(state.period.allDay);
+  const [periodChoice, setPeriodChoice] = useState<AgendaShift | "CUSTOM" | "">(
+    state.item?.shift ?? (state.item && !state.item.allDay ? "CUSTOM" : ""));
+  const [periodFields, setPeriodFields] = useState(() => ({
+    ...state.period,
+    startDateTime: state.period.startDateTime || `${state.period.startDate}T09:00`,
+    endDateTime: state.period.endDateTime || `${state.period.endDate}T10:00`
+  }));
+  const shift = !allDay && kind === "INTERNAL_DEMAND" && periodChoice !== "CUSTOM" && periodChoice !== "" ? periodChoice : null;
+  const dateOnly = allDay || !!shift;
+  function changeDate(name: "startDate" | "endDate", value: string) {
+    const timeName = name === "startDate" ? "startDateTime" : "endDateTime";
+    setPeriodFields((current) => ({ ...current, [name]: value, [timeName]: `${value}T${current[timeName].slice(11) || (name === "startDate" ? "09:00" : "10:00")}` }));
+  }
+  function changeDateTime(name: "startDateTime" | "endDateTime", value: string) {
+    setPeriodFields((current) => ({ ...current, [name]: value, [name === "startDateTime" ? "startDate" : "endDate"]: value.slice(0, 10) }));
+  }
   const [formError, setFormError] = useState<string>();
   const onError = useAgendaConflict();
   const mutation = useMutation({
@@ -130,13 +146,11 @@ export function ItemEditor({ state, managers, timeZone, onClose, onSaved, taskMo
     setFormError(undefined);
     const form = new FormData(event.currentTarget);
     try {
-      const period = periodFieldsToInstants({
-        allDay,
-        startDate: String(form.get("startDate") ?? ""),
-        endDate: String(form.get("endDate") ?? ""),
-        startDateTime: String(form.get("startDateTime") ?? ""),
-        endDateTime: String(form.get("endDateTime") ?? "")
-      }, timeZone);
+      if (!allDay && kind === "INTERNAL_DEMAND" && !periodChoice) {
+        setFormError("Selecione o período da tarefa.");
+        return;
+      }
+      const period = periodFieldsToInstants({ ...periodFields, allDay, shift }, timeZone);
       if (Temporal.Instant.compare(period.startAt, period.endAt) >= 0) {
         setFormError("O término deve ser posterior ao início.");
         return;
@@ -149,6 +163,7 @@ export function ItemEditor({ state, managers, timeZone, onClose, onSaved, taskMo
         location: kind === "INSTITUTION_EVENT" ? String(form.get("location") ?? "") || null : null,
         assigneeIds: kind === "INTERNAL_DEMAND" ? assignedIds : [],
         ...period,
+        shift,
         allDay
       });
     } catch {
@@ -210,17 +225,24 @@ export function ItemEditor({ state, managers, timeZone, onClose, onSaved, taskMo
               <input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} />
               Dia inteiro
             </label>
-            {allDay ? (
+            {!allDay && kind === "INTERNAL_DEMAND" ? <Field label="Período">
+              <SelectInput required value={periodChoice} onChange={(event) => setPeriodChoice(event.target.value as AgendaShift | "CUSTOM" | "")}>
+                <option value="">Selecione o período</option>
+                {Object.entries(shiftLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                <option value="CUSTOM">Horário personalizado</option>
+              </SelectInput>
+            </Field> : null}
+            {dateOnly ? (
               <div className={styles.dateGrid}>
-                <Field label="Data inicial"><TextInput type="date" name="startDate" required defaultValue={state.period.startDate} /></Field>
-                <Field label="Data final"><TextInput type="date" name="endDate" required defaultValue={state.period.endDate} /></Field>
+                <Field label="Data inicial"><TextInput type="date" name="startDate" required value={periodFields.startDate} onChange={(event) => changeDate("startDate", event.target.value)} /></Field>
+                <Field label="Data final"><TextInput type="date" name="endDate" required value={periodFields.endDate} onChange={(event) => changeDate("endDate", event.target.value)} /></Field>
               </div>
-            ) : (
+            ) : (kind === "INSTITUTION_EVENT" || periodChoice === "CUSTOM") ? (
               <div className={styles.dateGrid}>
-                <Field label="Início"><TextInput type="datetime-local" name="startDateTime" required defaultValue={state.period.startDateTime || `${state.period.startDate}T09:00`} /></Field>
-                <Field label="Término"><TextInput type="datetime-local" name="endDateTime" required defaultValue={state.period.endDateTime || `${state.period.endDate}T10:00`} /></Field>
+                <Field label="Início"><TextInput type="datetime-local" name="startDateTime" required value={periodFields.startDateTime} onChange={(event) => changeDateTime("startDateTime", event.target.value)} /></Field>
+                <Field label="Término"><TextInput type="datetime-local" name="endDateTime" required value={periodFields.endDateTime} onChange={(event) => changeDateTime("endDateTime", event.target.value)} /></Field>
               </div>
-            )}
+            ) : null}
             {(formError ?? mutation.error?.message) ? <p className={styles.error} role="alert">{formError ?? mutation.error?.message}</p> : null}
             <div className={styles.dialogActions}>
               <Button type="button" onClick={onClose}>Cancelar</Button>

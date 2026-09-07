@@ -8,19 +8,18 @@ Permitir que colaboradores de uma única instituição abram solicitações, aco
 
 - REQUESTER abre e visualiza apenas solicitações próprias.
 - AGENT visualiza a fila única e opera solicitações.
-- MANAGER possui as capacidades de AGENT e também redistribui e supervisiona prazos.
+- MANAGER possui as capacidades de AGENT e também redistribui solicitações.
 - ADMIN administra a instalação; precisa acumular AGENT ou MANAGER para acessar conteúdo operacional.
 
 ## Solicitações
 
-- Assunto e descrição são obrigatórios; anexos são opcionais.
+- Categoria ativa e descrição são obrigatórias; anexos são opcionais.
 - O MVP não executa varredura antimalware. Novos anexos usam NOT_SCANNED; permanecem as validações de extensão, conteúdo, tamanho e quantidade.
-- Categoria é opcional na abertura e obrigatória antes de `IN_PROGRESS`.
+- Categoria substitui assunto na identificação visual. Solicitações antigas sem categoria exibem “Sem categoria” e devem ser classificadas antes de `IN_PROGRESS`.
 - Estados: OPEN, IN_PROGRESS, WAITING_REQUESTER e RESOLVED.
 - Comentários e anexos são imutáveis; notas internas não aparecem ao solicitante.
 - RESOLVED pode voltar para IN_PROGRESS pelo solicitante durante a janela configurada, inicialmente 7 dias.
-- Prioridades: LOW, NORMAL, HIGH e CRITICAL.
-- Prazo é opcional, manual e não representa SLA.
+- Solicitações não possuem assunto, prioridade ou prazo de atendimento. A janela de reabertura permanece configurável.
 
 ## Administração
 
@@ -41,14 +40,17 @@ Permitir que colaboradores de uma única instituição abram solicitações, aco
 
 ## Tarefas
 
-- A rota `/tarefas` é exclusiva de MANAGER e apresenta as mesmas demandas internas da Agenda em tabela mensal; não existe cópia ou sincronização de cadastros.
+- A rota `/tarefas` é exclusiva de MANAGER e apresenta as mesmas demandas internas da Agenda em tabela diária por padrão, com opção mensal; não existe cópia ou sincronização de cadastros.
 - Criar, editar, concluir, reabrir e excluir usa a API da Agenda, com auditoria e versão obrigatória nas alterações.
 - Prioridades de demandas: LOW (Baixa), MEDIUM (Média) e HIGH (Alta). Demandas existentes e novas sem prioridade recebem MEDIUM; atualizações sem prioridade ou com null preservam o valor. Eventos não possuem prioridade.
 - A tabela apresenta data, dia da semana, tarefa, prioridade, status, horário, responsável, observações (descrição) e ações. Responsáveis são Administrativos ativos, selecionados individualmente; o filtro encontra a tarefa por qualquer responsável.
-- O mês inicial é o atual no fuso institucional. Itens com sobreposição ao mês aparecem uma vez, incluindo períodos entre meses; o término permanece exclusivo.
-- Os indicadores são totais do mês e não mudam com os filtros de texto, prioridade, status e responsável.
+- A tela abre no dia atual do fuso institucional. O seletor Dia/Mês mantém a data de referência, com navegação anterior/próxima e retorno a Hoje/Mês atual. Itens com sobreposição ao período aparecem uma vez, incluindo tarefas de vários dias e turnos; o término permanece exclusivo. Nova tarefa usa a data selecionada no modo diário.
+- Os indicadores acompanham o período selecionado (dia ou mês) e não mudam com os filtros de texto, prioridade, status e responsável.
 - Formulários e detalhes são compartilhados com a Agenda. Conflitos atualizam a consulta e exibem erro sem substituir o formulário em edição.
-- Não inclui turnos, importação ou atualização em tempo real.
+- Demandas sem dia inteiro permitem Manhã (06–12), Tarde (12–18), Noite (18–00) ou horário personalizado. Turnos exigem apenas datas inicial e final inclusivas, no fuso institucional.
+- O campo opcional shift (MORNING, AFTERNOON, NIGHT) persiste o turno. startAt/endAt delimitam o primeiro e último turno, com término exclusivo; ausência ou null desativa o turno. Eventos e dia inteiro não aceitam turno.
+- A agenda exibe um bloco por data selecionada, incluindo fins de semana e feriados, todos vinculados à mesma tarefa. Totais contam a tarefa uma vez. Editar, concluir ou excluir afeta todos os blocos.
+- Não inclui importação ou atualização em tempo real.
 
 ## Ocorrências do dia e múltiplos responsáveis
 

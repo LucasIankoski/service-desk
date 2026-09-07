@@ -45,13 +45,13 @@ class AgendaController {
     @ResponseStatus(HttpStatus.CREATED)
     AgendaItemView create(@Valid @RequestBody CreateAgendaItemRequest request) {
         return agenda.create(request.kind(), request.title(), request.description(), request.location(),
-                request.assigneeId(), request.startAt(), request.endAt(), request.allDay(), request.priority(), request.assigneeIds(), currentUser.required());
+                request.assigneeId(), request.startAt(), request.endAt(), request.allDay(), request.priority(), request.assigneeIds(), request.shift(), currentUser.required());
     }
 
     @PatchMapping("/{id}")
     AgendaItemView update(@PathVariable UUID id, @Valid @RequestBody UpdateAgendaItemRequest request) {
         return agenda.update(id, request.title(), request.description(), request.location(), request.assigneeId(),
-                request.startAt(), request.endAt(), request.allDay(), request.version(), request.priority(), request.assigneeIds(), currentUser.required());
+                request.startAt(), request.endAt(), request.allDay(), request.version(), request.priority(), request.assigneeIds(), request.shift(), currentUser.required());
     }
 
     @PatchMapping("/{id}/status")
@@ -72,7 +72,7 @@ class AgendaController {
                                    UUID assigneeId,
                                    @NotNull Instant startAt,
                                    @NotNull Instant endAt,
-                                   boolean allDay, AgendaItemPriority priority, @Size(max = 100) List<@NotNull UUID> assigneeIds) {
+                                   boolean allDay, AgendaItemPriority priority, @Size(max = 100) List<@NotNull UUID> assigneeIds, AgendaShift shift) {
     }
 
     record UpdateAgendaItemRequest(@NotBlank @Size(max = 160) String title,
@@ -82,7 +82,7 @@ class AgendaController {
                                    @NotNull Instant startAt,
                                    @NotNull Instant endAt,
                                    boolean allDay,
-                                   long version, AgendaItemPriority priority, @Size(max = 100) List<@NotNull UUID> assigneeIds) {
+                                   long version, AgendaItemPriority priority, @Size(max = 100) List<@NotNull UUID> assigneeIds, AgendaShift shift) {
     }
 
     record AgendaStatusRequest(@NotNull AgendaItemStatus status, long version) {

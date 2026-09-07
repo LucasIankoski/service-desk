@@ -65,9 +65,6 @@ components:
     TicketStatus:
       type: string
       enum: [OPEN, IN_PROGRESS, WAITING_REQUESTER, RESOLVED]
-    Priority:
-      type: string
-      enum: [LOW, NORMAL, HIGH, CRITICAL]
     CommentVisibility:
       type: string
       enum: [PUBLIC, INTERNAL]
@@ -84,6 +81,10 @@ components:
     AgendaItemPriority:
       type: string
       enum: [LOW, MEDIUM, HIGH]
+    AgendaShift:
+      type: [string, "null"]
+      enum: [MORNING, AFTERNOON, NIGHT, null]
+      description: Turno diário no fuso institucional (06–12, 12–18, 18–00). Exclusivo de demandas com allDay=false. startAt e endAt delimitam o primeiro e último turno; ausência ou null desativa o turno.
     AgendaItemStatus:
       type: string
       enum: [PENDING, COMPLETED]
@@ -120,7 +121,7 @@ components:
         passwordConfigured: { type: boolean }
     AdminSettings:
       type: object
-      required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, deadlineWarningHours, theme, loginBackgroundConfigured, smtp, version, updatedAt]
+      required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, theme, loginBackgroundConfigured, smtp, version, updatedAt]
       properties:
         institutionName: { type: string }
         supportEmail: { type: [string, "null"], format: email }
@@ -128,7 +129,6 @@ components:
         timezoneName: { type: string }
         attachmentLimitMb: { type: integer }
         reopenDays: { type: integer }
-        deadlineWarningHours: { type: integer }
         theme: { $ref: "#/components/schemas/Theme" }
         loginBackgroundConfigured: { type: boolean }
         smtp: { $ref: "#/components/schemas/SmtpSettings" }
@@ -218,6 +218,7 @@ components:
             - { type: "null" }
         startAt: { type: string, format: date-time, description: Início inclusivo em UTC. }
         endAt: { type: string, format: date-time, description: Término exclusivo em UTC. }
+        shift: { $ref: "#/components/schemas/AgendaShift" }
         allDay: { type: boolean }
         version: { type: integer, format: int64 }
         createdAt: { type: string, format: date-time }
@@ -238,6 +239,7 @@ components:
         startAt: { type: string, format: date-time }
         endAt: { type: string, format: date-time }
         priority: { type: "null" }
+        shift: { type: "null" }
         allDay: { type: boolean }
       additionalProperties: false
     InternalDemandInput:
@@ -260,6 +262,7 @@ components:
           description: Lista substitui as atribuições; vazia limpa. Sem lista usa assigneeId legado, preservando as demais pessoas quando o primeiro responsável é repetido. IDs duplicados são deduplicados. Campo singular preenchido junto da lista deve corresponder ao primeiro ID.
         startAt: { type: string, format: date-time }
         endAt: { type: string, format: date-time }
+        shift: { $ref: "#/components/schemas/AgendaShift" }
         allDay: { type: boolean }
       additionalProperties: false
     AgendaItemCreate:
@@ -291,6 +294,7 @@ components:
           description: Lista substitui as atribuições; vazia limpa. Sem lista usa assigneeId legado, preservando as demais pessoas quando o primeiro responsável é repetido. IDs duplicados são deduplicados. Campo singular preenchido junto da lista deve corresponder ao primeiro ID.
         startAt: { type: string, format: date-time }
         endAt: { type: string, format: date-time }
+        shift: { $ref: "#/components/schemas/AgendaShift" }
         allDay: { type: boolean }
         version: { type: integer, format: int64 }
     CreatedUser:
@@ -336,20 +340,17 @@ components:
           items: { $ref: "#/components/schemas/Attachment" }
     TicketSummary:
       type: object
-      required: [id, publicNumber, subject, status, priority, requesterId, createdAt, updatedAt, version]
+      required: [id, publicNumber, status, requesterId, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         publicNumber: { type: string, example: SD-2026-000001 }
-        subject: { type: string }
         status: { $ref: "#/components/schemas/TicketStatus" }
-        priority: { $ref: "#/components/schemas/Priority" }
         requesterId: { type: string, format: uuid }
         requesterName: { type: [string, "null"] }
         assigneeId: { type: [string, "null"], format: uuid }
         assigneeName: { type: [string, "null"] }
         categoryId: { type: [string, "null"], format: uuid }
         categoryName: { type: [string, "null"] }
-        dueAt: { type: [string, "null"], format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
@@ -756,13 +757,9 @@ paths:
         - { $ref: "#/components/parameters/Size" }
         - { name: sort, in: query, schema: { type: string, example: "updatedAt,desc" } }
         - { name: number, in: query, schema: { type: string } }
-        - { name: subject, in: query, schema: { type: string } }
         - { name: status, in: query, schema: { $ref: "#/components/schemas/TicketStatus" } }
-        - { name: priority, in: query, schema: { $ref: "#/components/schemas/Priority" } }
         - { name: categoryId, in: query, schema: { type: string, format: uuid } }
         - { name: assigneeId, in: query, schema: { type: string, format: uuid } }
-        - { name: dueAfter, in: query, schema: { type: string, format: date-time } }
-        - { name: dueBefore, in: query, schema: { type: string, format: date-time } }
       responses:
         "200":
           description: Página estável de solicitações.
@@ -782,11 +779,10 @@ paths:
               properties:
                 metadata:
                   type: object
-                  required: [subject, description]
+                  required: [categoryId, description]
                   properties:
-                    subject: { type: string, maxLength: 160 }
                     description: { type: string, maxLength: 8000 }
-                    categoryId: { type: [string, "null"], format: uuid }
+                    categoryId: { type: string, format: uuid }
                 files: { type: array, maxItems: 5, items: { type: string, format: binary } }
       responses:
         "200":
@@ -833,7 +829,7 @@ paths:
   /tickets/{id}/classification:
     patch:
       security: [{ sessionCookie: [], csrfHeader: [] }]
-      summary: Define categoria, prioridade e prazo.
+      summary: Define a categoria da solicitação.
       parameters: [{ $ref: "#/components/parameters/Id" }]
       requestBody:
         required: true
@@ -844,56 +840,10 @@ paths:
               required: [categoryId, version]
               properties:
                 categoryId: { type: string, format: uuid }
-                priority: { $ref: "#/components/schemas/Priority" }
-                dueAt: { type: [string, "null"], format: date-time }
                 version: { type: integer, format: int64 }
       responses:
         "200":
           description: Classificação atualizada.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TicketDetail" }
-        "409": { $ref: "#/components/responses/Conflict" }
-  /tickets/{id}/priority:
-    patch:
-      security: [{ sessionCookie: [], csrfHeader: [] }]
-      summary: Atualiza somente a prioridade.
-      parameters: [{ $ref: "#/components/parameters/Id" }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [priority, version]
-              properties:
-                priority: { $ref: "#/components/schemas/Priority" }
-                version: { type: integer, format: int64 }
-      responses:
-        "200":
-          description: Prioridade atualizada.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TicketDetail" }
-        "409": { $ref: "#/components/responses/Conflict" }
-  /tickets/{id}/deadline:
-    patch:
-      security: [{ sessionCookie: [], csrfHeader: [] }]
-      summary: Define ou remove o prazo manual.
-      parameters: [{ $ref: "#/components/parameters/Id" }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [version]
-              properties:
-                dueAt: { type: [string, "null"], format: date-time }
-                version: { type: integer, format: int64 }
-      responses:
-        "200":
-          description: Prazo atualizado.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TicketDetail" }
@@ -1143,7 +1093,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, deadlineWarningHours, version]
+              required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, version]
               properties:
                 institutionName: { type: string, maxLength: 160 }
                 supportEmail: { type: [string, "null"], format: email }
@@ -1151,7 +1101,6 @@ paths:
                 timezoneName: { type: string }
                 attachmentLimitMb: { type: integer, minimum: 1, maximum: 25 }
                 reopenDays: { type: integer, minimum: 1, maximum: 30 }
-                deadlineWarningHours: { type: integer, minimum: 1, maximum: 168 }
                 version: { type: integer, format: int64 }
       responses:
         "200":

@@ -250,7 +250,6 @@ function GeneralTab() {
         timezoneName: String(form.get("timezoneName")),
         attachmentLimitMb: Number(form.get("attachmentLimitMb")),
         reopenDays: Number(form.get("reopenDays")),
-        deadlineWarningHours: Number(form.get("deadlineWarningHours")),
         version: settings.data.version
       });
     }}>
@@ -261,7 +260,6 @@ function GeneralTab() {
       <div className={styles.threeCols}>
         <Field label="MiB por anexo"><TextInput name="attachmentLimitMb" type="number" min={1} max={25} defaultValue={settings.data.attachmentLimitMb} /></Field>
         <Field label="Dias para reabrir"><TextInput name="reopenDays" type="number" min={1} max={30} defaultValue={settings.data.reopenDays} /></Field>
-        <Field label="Aviso de prazo (h)"><TextInput name="deadlineWarningHours" type="number" min={1} max={168} defaultValue={settings.data.deadlineWarningHours} /></Field>
       </div>
       <Button type="submit" variant="primary" disabled={mutation.isPending}>Salvar geral</Button>
       {mutation.error ? <p className={styles.error}>{mutation.error.message}</p> : null}

@@ -1,7 +1,8 @@
 import { apiFetch } from "./http";
-import type { AgendaOccurrence, AgendaItem, AgendaItemKind, AgendaItemPriority, AgendaItemStatus, Assignee } from "./types";
+import type { AgendaShift, AgendaOccurrence, AgendaItem, AgendaItemKind, AgendaItemPriority, AgendaItemStatus, Assignee } from "./types";
 
 export type AgendaItemInput = {
+  shift?: AgendaShift | null;
   kind: AgendaItemKind;
   priority?: AgendaItemPriority | null;
   title: string;

@@ -29,6 +29,50 @@ class AgendaServiceTests {
     @Autowired IdentityService identity;
 
     @Test
+    void shiftsPersistAcrossDatesAndRespectPermissionsAndVersion() {
+        var manager = user("shift-manager", Role.MANAGER);
+        var requester = user("shift-requester", Role.REQUESTER);
+        for (var shift : AgendaShift.values()) {
+            var start = LocalDate.of(2027, 1, 30).atTime(shift.start()).atZone(INSTITUTION_ZONE).toInstant();
+            var endDate = LocalDate.of(2027, 2, 2).plusDays(shift == AgendaShift.NIGHT ? 1 : 0);
+            var end = endDate.atTime(shift.end()).atZone(INSTITUTION_ZONE).toInstant();
+            var created = agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Turno", null, null, null,
+                    start, end, false, null, List.of(), shift, manager);
+            assertThat(created.shift()).isEqualTo(shift);
+            assertThat(agenda.list(start, end, manager)).filteredOn(i -> i.id().equals(created.id()))
+                    .extracting(AgendaItemView::shift).containsExactly(shift);
+            assertThat(agenda.list(start, end, requester)).extracting(AgendaItemView::id).doesNotContain(created.id());
+            assertThatThrownBy(() -> agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Turno", null, null, null,
+                    start, end, false, null, List.of(), shift, requester)).isInstanceOf(DomainException.class);
+            var completed = agenda.changeStatus(created.id(), AgendaItemStatus.COMPLETED, created.version(), manager);
+            assertThat(completed.shift()).isEqualTo(shift);
+            assertThatThrownBy(() -> agenda.update(created.id(), "Antiga", null, null, null,
+                    start, end, false, created.version(), null, List.of(), shift, manager))
+                    .isInstanceOf(DomainException.class).hasMessageContaining("mudou");
+            var custom = agenda.update(created.id(), "Personalizado", null, null, null, start, end,
+                    false, completed.version(), null, List.of(), null, manager);
+            assertThat(custom.shift()).isNull();
+            assertThat(custom.startAt()).isEqualTo(start);
+            agenda.delete(custom.id(), custom.version(), manager);
+        }
+    }
+
+    @Test
+    void rejectsShiftsOutsideTheirHoursOrOnEventsAndAllDayItems() {
+        var manager = user("invalid-shift-manager", Role.MANAGER);
+        var start = Instant.parse("2027-04-01T09:00:00Z");
+        var end = Instant.parse("2027-04-01T15:00:00Z");
+        assertThatThrownBy(() -> agenda.create(AgendaItemKind.INSTITUTION_EVENT, "Evento", null, null, null,
+                start, end, false, null, List.of(), AgendaShift.MORNING, manager)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Dia", null, null, null,
+                Instant.parse("2027-04-01T03:00:00Z"), Instant.parse("2027-04-02T03:00:00Z"),
+                true, null, List.of(), AgendaShift.MORNING, manager)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> agenda.create(AgendaItemKind.INTERNAL_DEMAND, "Hora", null, null, null,
+                start.plusSeconds(60), end, false, null, List.of(), AgendaShift.MORNING, manager))
+                .isInstanceOf(DomainException.class).hasMessageContaining("horários do turno");
+    }
+
+    @Test
     void managerCreatesSharedItemsAndRequesterSeesOnlyInstitutionEvents() {
         var manager = user("agenda-manager", Role.MANAGER);
         var requester = user("agenda-requester", Role.REQUESTER);

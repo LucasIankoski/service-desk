@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-simplify-tickets
+      author: service-desk-team
+      changes:
+        - sql:
+            dbms: postgresql,h2,oracle
+            sql: "UPDATE ticket SET description = 'Assunto anterior: ' || subject || CHR(10) || CHR(10) || description"
+        - sql:
+            dbms: mysql
+            sql: "UPDATE ticket SET description = CONCAT('Assunto anterior: ', subject, CHAR(10), CHAR(10), description)"
+        - sql:
+            dbms: mssql
+            sql: "UPDATE ticket SET description = CAST(N'Assunto anterior: ' AS nvarchar(max)) + subject + NCHAR(10) + NCHAR(10) + description"
+        - dropIndex:
+            tableName: ticket
+            indexName: ix_ticket_due
+        - dropIndex:
+            tableName: ticket
+            indexName: ix_ticket_queue
+        - dropColumn:
+            tableName: ticket
+            columnName: subject
+        - dropColumn:
+            tableName: ticket
+            columnName: priority_name
+        - dropColumn:
+            tableName: ticket
+            columnName: due_at
+        - dropColumn:
+            tableName: ticket
+            columnName: deadline_warning_sent
+        - dropColumn:
+            tableName: ticket
+            columnName: overdue_sent
+        - createIndex:
+            tableName: ticket
+            indexName: ix_ticket_queue
+            columns:
+              - column: { name: status_name }
+              - column: { name: updated_at }
+        - dropColumn:
+            tableName: app_settings
+            columnName: deadline_warning_hours

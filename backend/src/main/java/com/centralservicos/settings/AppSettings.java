@@ -22,7 +22,6 @@ class AppSettings {
     private String timezoneName;
     private int attachmentLimitMb;
     private int reopenDays;
-    private int deadlineWarningHours;
     private String primaryColor;
     private String accentColor;
     private String sidebarColor;
@@ -50,7 +49,6 @@ class AppSettings {
     String timezoneName() { return timezoneName; }
     int attachmentLimitMb() { return attachmentLimitMb; }
     int reopenDays() { return reopenDays; }
-    int deadlineWarningHours() { return deadlineWarningHours; }
     String primaryColor() { return primaryColor; }
     String accentColor() { return accentColor; }
     String sidebarColor() { return sidebarColor; }
@@ -68,14 +66,13 @@ class AppSettings {
     Instant updatedAt() { return updatedAt; }
 
     void updateGeneral(String institutionName, String supportEmail, String supportPhone, String timezoneName,
-                       int attachmentLimitMb, int reopenDays, int deadlineWarningHours) {
+                       int attachmentLimitMb, int reopenDays) {
         this.institutionName = institutionName.trim();
         this.supportEmail = blankToNull(supportEmail);
         this.supportPhone = blankToNull(supportPhone);
         this.timezoneName = timezoneName.trim();
         this.attachmentLimitMb = attachmentLimitMb;
         this.reopenDays = reopenDays;
-        this.deadlineWarningHours = deadlineWarningHours;
         touch();
     }
 

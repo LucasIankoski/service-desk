@@ -1,0 +1,85 @@
+# Only the tables/indexes involved in migration 007, copied from migration 001.
+# This isolates upgrade validation from unrelated fresh-install cascade constraints.
+databaseChangeLog:
+  - changeSet:
+      id: test-ticket-upgrade-baseline
+      author: test
+      changes:
+        - createTable:
+            tableName: user_account
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: email, type: varchar(254), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_user_email } }
+              - column: { name: display_name, type: varchar(120), constraints: { nullable: false } }
+              - column: { name: password_hash, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: active, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: password_change_required, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: anonymized, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - createTable:
+            tableName: category
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: name, type: varchar(100), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_category_name } }
+              - column: { name: active, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - createTable:
+            tableName: ticket
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: public_number, type: varchar(24), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_ticket_number } }
+              - column: { name: requester_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: assignee_id, type: varchar(36) }
+              - column: { name: category_id, type: varchar(36) }
+              - column: { name: subject, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: description, type: clob, constraints: { nullable: false } }
+              - column: { name: status_name, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: priority_name, type: varchar(16), constraints: { nullable: false } }
+              - column: { name: due_at, type: timestamp }
+              - column: { name: deadline_warning_sent, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: overdue_sent, type: boolean, defaultValueBoolean: false, constraints: { nullable: false } }
+              - column: { name: first_responded_at, type: timestamp }
+              - column: { name: resolved_at, type: timestamp }
+              - column: { name: closed_at, type: timestamp }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - createIndex:
+            tableName: ticket
+            indexName: ix_ticket_queue
+            columns:
+              - column: { name: status_name }
+              - column: { name: priority_name }
+              - column: { name: updated_at }
+        - createIndex:
+            tableName: ticket
+            indexName: ix_ticket_due
+            columns:
+              - column: { name: due_at }
+        - createTable:
+            tableName: app_settings
+            columns:
+              - column: { name: id, type: int, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: institution_name, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: support_email, type: varchar(254) }
+              - column: { name: support_phone, type: varchar(40) }
+              - column: { name: timezone_name, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: attachment_limit_mb, type: int, constraints: { nullable: false } }
+              - column: { name: reopen_days, type: int, constraints: { nullable: false } }
+              - column: { name: deadline_warning_hours, type: int, constraints: { nullable: false } }
+              - column: { name: primary_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: accent_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: sidebar_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: canvas_color, type: varchar(7), constraints: { nullable: false } }
+              - column: { name: login_background_path, type: varchar(500) }
+              - column: { name: login_background_media_type, type: varchar(120) }
+              - column: { name: smtp_host, type: varchar(255) }
+              - column: { name: smtp_port, type: int }
+              - column: { name: smtp_tls, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+              - column: { name: smtp_from_name, type: varchar(160) }
+              - column: { name: smtp_from_address, type: varchar(254) }
+              - column: { name: smtp_username, type: varchar(254) }
+              - column: { name: smtp_password_enc, type: varchar(2048) }
+              - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
