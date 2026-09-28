@@ -89,6 +89,37 @@ class TicketApiTests {
                 });
     }
 
+    @Test
+    void acceptsTwentyAttachmentsAndRejectsTwentyOneOnTicketsAndComments() throws Exception {
+        var actor = account(Role.REQUESTER);
+        var category = categories.create("Attachments " + UUID.randomUUID(), actor.id());
+        var mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        var metadata = new MockMultipartFile("metadata", "", "application/json",
+                ("{\"description\":\"Solicitação com vinte anexos\",\"categoryId\":\"" + category.id() + "\"}")
+                        .getBytes(StandardCharsets.UTF_8));
+        var request = multipart("/api/v1/tickets").file(metadata);
+        for (int i = 0; i < 20; i++) {
+            request.file(new MockMultipartFile("files", "file-" + i + ".txt", "text/plain",
+                    ("Conteúdo do anexo " + i).getBytes(StandardCharsets.UTF_8)));
+        }
+        mvc.perform(request.with(user(actor)).with(csrf())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.attachments.length()").value(20));
+        request.file(new MockMultipartFile("files", "extra.txt", "text/plain", "Extra".getBytes(StandardCharsets.UTF_8)));
+        mvc.perform(request.with(user(actor)).with(csrf())).andExpect(status().isUnprocessableEntity());
+
+        var ticket = tickets.create("Solicitação para comentários", category.id(), List.of(), actor);
+        var comment = multipart("/api/v1/tickets/" + ticket.id() + "/comments")
+                .file(new MockMultipartFile("metadata", "", "application/json",
+                        "{\"body\":\"Comentário com anexos\",\"visibility\":\"PUBLIC\"}".getBytes(StandardCharsets.UTF_8)));
+        for (int i = 0; i < 20; i++) {
+            comment.file(new MockMultipartFile("files", "comment-" + i + ".txt", "text/plain",
+                    ("Conteúdo do comentário " + i).getBytes(StandardCharsets.UTF_8)));
+        }
+        mvc.perform(comment.with(user(actor)).with(csrf())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.comments[0].attachments.length()").value(20));
+        comment.file(new MockMultipartFile("files", "extra.txt", "text/plain", "Extra".getBytes(StandardCharsets.UTF_8)));
+        mvc.perform(comment.with(user(actor)).with(csrf())).andExpect(status().isUnprocessableEntity());
+    }
     private AuthenticatedUser account(Role role) {
         var created = identity.create(UUID.randomUUID() + "@example.test", "API user", Set.of(role), null).user();
         identity.changePassword(created.id(), "Valid-test-password-123!");

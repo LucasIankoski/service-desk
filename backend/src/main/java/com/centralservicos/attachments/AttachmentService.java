@@ -25,7 +25,7 @@ import java.util.zip.ZipInputStream;
 @Service
 public class AttachmentService {
 
-    private static final int MAX_ATTACHMENTS_PER_OPERATION = 5;
+    private static final int MAX_ATTACHMENTS_PER_OPERATION = 20;
     private static final Set<String> IMAGE_MEDIA_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
     private static final Map<String, Set<String>> ALLOWED_MEDIA_BY_EXTENSION = Map.ofEntries(
             Map.entry("pdf", Set.of("application/pdf")),
@@ -57,7 +57,7 @@ public class AttachmentService {
                                                 int perFileLimitMb) {
         var safeFiles = normalize(files);
         if (safeFiles.size() > MAX_ATTACHMENTS_PER_OPERATION) {
-            throw DomainException.unprocessable("Envie no máximo 5 anexos por operação.");
+            throw DomainException.unprocessable("Envie no máximo 20 anexos por operação.");
         }
         var views = new ArrayList<AttachmentView>();
         for (MultipartFile file : safeFiles) {

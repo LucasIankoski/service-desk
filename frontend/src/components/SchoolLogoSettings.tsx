@@ -23,7 +23,8 @@ export function SchoolLogoSettings() {
     }
   });
   return <section aria-label="Logotipo da escola">
-    <h3>Logotipo da escola</h3><p>Exibido no cabeçalho dos planejamentos pedagógicos.</p>
+    <h3>Logotipo da escola</h3><p>Exibido no cabeçalho dos planejamentos pedagógicos e no ícone do atalho da aplicação no celular.</p>
+    <p>Prefira uma imagem nítida, com pouco texto. Após trocar a logo, pode ser necessário recriar o atalho no celular.</p>
     {settings.data?.schoolLogoUrl && <img src={settings.data.schoolLogoUrl} alt="Logotipo atual" style={{ width: 100, height: 100, objectFit: "contain" }} />}
     <label>Imagem do logotipo <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setFile(e.target.files?.[0] ?? null)} /></label>
     <Button disabled={!file || !settings.data || update.isPending} onClick={() => update.mutate(false)}>Salvar logotipo</Button>

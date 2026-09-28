@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
 import type { ActivityRecord } from "../src/api/records";
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3ioAAAAASUVORK5CYII=", "base64");
-const file = { name: "atividade.png", mimeType: "image/png", buffer: png };
+const file = { name: "proposta.png", mimeType: "image/png", buffer: png };
 async function setup(page: Page, canEdit = true, archived = false) {
   let record: ActivityRecord = { id: "album", classId: "class", className: "BII", archived, title: "Descobrindo as cores", activityDate: "2026-09-27", authorId: "a", authorName: "Cristine", version: 0, canEdit: canEdit && !archived, createdAt: "2026-09-27T12:00:00Z", updatedAt: "2026-09-27T12:00:00Z", attachmentLimitMb: 5,
     photos: [1, 2, 3].map(i => ({ id: String(i), url: `/api/v1/pedagogical/records/album/photos/${i}`, thumbnailUrl: `/api/v1/pedagogical/records/album/photos/${i}/thumbnail`, width: i === 2 ? 400 : 800, height: i === 2 ? 800 : 400 })) };
@@ -24,7 +24,7 @@ async function setup(page: Page, canEdit = true, archived = false) {
       const raw = route.request().postDataBuffer()!.toString();
       // WebKit's protocol omits Blob bytes from intercepted multipart bodies.
       const part = raw.match(/name="metadata"[^]*?\r\n\r\n([^]*?)\r\n--/)?.[1];
-      const metadata = part ? JSON.parse(part) : { title: await page.getByLabel("Título da atividade").inputValue(), activityDate: await page.getByLabel("Data da atividade").inputValue() };
+      const metadata = part ? JSON.parse(part) : { title: await page.getByLabel("Título da proposta").inputValue(), activityDate: await page.getByLabel("Data da proposta").inputValue() };
       record = { ...record, title: metadata.title, activityDate: metadata.activityDate, version: record.version + 1 };
       return json(record, method === "POST" ? 201 : 200);
     }
@@ -37,9 +37,9 @@ test("cadastro com prévias, galeria acessível e navegação ampliada", async (
   await setup(page);
   await page.goto("/pedagogico/turmas/class/registros");
   await page.getByRole("button", { name: "Novo registro" }).click();
-  await page.getByLabel("Título da atividade").fill("Momentos de pintura");
-  await page.getByLabel("Data da atividade").fill("2026-09-27");
-  await page.getByLabel("Fotos da atividade").setInputFiles([file, { ...file, name: "outra.png" }]);
+  await page.getByLabel("Título da proposta").fill("Momentos de pintura");
+  await page.getByLabel("Data da proposta").fill("2026-09-27");
+  await page.getByLabel("Fotos da proposta").setInputFiles([file, { ...file, name: "outra.png" }]);
   await expect(page.getByRole("img", { name: "Prévia", exact: false })).toHaveCount(2);
   await page.getByRole("button", { name: "Remover nova foto 2" }).click();
   await page.getByRole("button", { name: "Salvar registro" }).click();
@@ -63,18 +63,18 @@ test("falha e conflito preservam título e arquivos para revisão", async ({ pag
   const api = await setup(page);
   await page.goto("/pedagogico/registros/album");
   await page.getByRole("button", { name: "Editar registro" }).click();
-  await page.getByLabel("Título da atividade").fill("Meu título local");
-  await page.getByLabel("Fotos da atividade").setInputFiles(file);
+  await page.getByLabel("Título da proposta").fill("Meu título local");
+  await page.getByLabel("Fotos da proposta").setInputFiles(file);
   api.fail(500);
   await page.getByRole("button", { name: "Salvar registro" }).click();
   await expect(page.getByRole("alert")).toContainText("Falha no envio");
-  await expect(page.getByLabel("Título da atividade")).toHaveValue("Meu título local");
+  await expect(page.getByLabel("Título da proposta")).toHaveValue("Meu título local");
   await expect(page.getByRole("img", { name: /Prévia/ })).toBeVisible();
   api.fail(409);
   await page.getByRole("button", { name: "Salvar registro" }).click();
   await expect(page.getByText(/Versão atual: Título da administração/)).toBeVisible();
   await page.getByRole("button", { name: "Revisar minhas alterações sobre a versão atual" }).click();
-  await expect(page.getByLabel("Título da atividade")).toHaveValue("Meu título local");
+  await expect(page.getByLabel("Título da proposta")).toHaveValue("Meu título local");
   await page.getByRole("button", { name: "Salvar registro" }).click();
   await expect(page.getByRole("heading", { name: "Meu título local" })).toBeVisible();
 });
@@ -83,13 +83,13 @@ test("aviso de saída, limites de fotos e exclusão confirmada", async ({ page }
   await setup(page);
   await page.goto("/pedagogico/registros/album");
   await page.getByRole("button", { name: "Editar registro" }).click();
-  await page.getByLabel("Título da atividade").fill("Não perder");
+  await page.getByLabel("Título da proposta").fill("Não perder");
   await page.getByRole("link", { name: "Registros", exact: true }).click();
   await expect(page.getByText("Existem alterações não salvas.")).toBeVisible();
   await page.getByRole("button", { name: "Continuar editando" }).click();
-  await page.getByLabel("Fotos da atividade").setInputFiles({ ...file, name: "foto.heic" });
+  await page.getByLabel("Fotos da proposta").setInputFiles({ ...file, name: "foto.heic" });
   await expect(page.getByRole("alert")).toContainText("JPG, PNG ou WebP");
-  await page.getByLabel("Fotos da atividade").setInputFiles(Array.from({ length: 21 }, (_, i) => ({ ...file, name: `${i}.png` })));
+  await page.getByLabel("Fotos da proposta").setInputFiles(Array.from({ length: 21 }, (_, i) => ({ ...file, name: `${i}.png` })));
   await expect(page.getByRole("alert")).toContainText("20 fotos");
   await page.getByRole("link", { name: "Registros", exact: true }).click();
   await page.getByRole("button", { name: "Descartar e sair" }).click();

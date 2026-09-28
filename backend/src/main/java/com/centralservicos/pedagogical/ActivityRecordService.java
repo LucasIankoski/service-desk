@@ -89,7 +89,7 @@ class ActivityRecordService {
     private void change(ActivityRecord record, Input input, List<MultipartFile> files) {
         if (input.title() == null || input.title().isBlank() || input.title().length() > 200 || input.activityDate() == null
                 || input.activityDate().getYear() < 1900 || input.activityDate().getYear() > 9998)
-            throw DomainException.unprocessable("Informe título e data da atividade válidos.");
+            throw DomainException.unprocessable("Informe título e data da proposta válidos.");
         var keep = new HashSet<>(input.retainedPhotoIds());
         if (keep.size() != input.retainedPhotoIds().size() || !record.photos.stream().map(p -> p.id).toList().containsAll(keep))
             throw DomainException.unprocessable("Seleção de fotos inválida.");
