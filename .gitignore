@@ -25,6 +25,7 @@ Thumbs.db
 /logs/
 
 # Test artifacts
+/output/
 coverage/
 *.log
 architecture-review-*.html

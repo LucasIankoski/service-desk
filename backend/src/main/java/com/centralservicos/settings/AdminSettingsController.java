@@ -53,6 +53,17 @@ class AdminSettingsController {
         return settings.updateLoginBackground(file, currentUser.id());
     }
 
+    @PostMapping("/school-logo")
+    AdminSettingsView schoolLogo(@RequestPart("file") MultipartFile file,
+            @org.springframework.web.bind.annotation.RequestParam long version) {
+        return settings.updateSchoolLogo(file, version, currentUser.id());
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/school-logo")
+    AdminSettingsView removeSchoolLogo(@org.springframework.web.bind.annotation.RequestParam long version) {
+        return settings.updateSchoolLogo(null, version, currentUser.id());
+    }
+
     @PatchMapping("/smtp")
     AdminSettingsView smtp(@Valid @org.springframework.web.bind.annotation.RequestBody
                            SettingsService.UpdateSmtpRequest request) {

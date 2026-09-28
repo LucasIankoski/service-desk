@@ -28,6 +28,16 @@ class PublicSettingsController {
                 .body(view);
     }
 
+    @GetMapping("/school-logo")
+    ResponseEntity<?> schoolLogo() {
+        var file = settings.loadSchoolLogo();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, file.mediaType())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"school-logo\"")
+                .cacheControl(CacheControl.noCache())
+                .body(file.resource());
+    }
+
     @GetMapping("/login-background")
     ResponseEntity<?> loginBackground() {
         var file = settings.loadLoginBackground();

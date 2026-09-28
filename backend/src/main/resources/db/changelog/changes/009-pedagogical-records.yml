@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-pedagogical-records
+      author: service-desk-team
+      changes:
+        - createTable:
+            tableName: ped_record
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { nullable: false, primaryKey: true } }
+              - column: { name: class_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: title, type: varchar(200), constraints: { nullable: false } }
+              - column: { name: activity_date, type: date, constraints: { nullable: false } }
+              - column: { name: author_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: author_name, type: varchar(160), constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, constraints: { nullable: false } }
+        - createTable:
+            tableName: ped_record_photo
+            columns:
+              - column: { name: record_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: original_key, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: thumbnail_key, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: media_type, type: varchar(100), constraints: { nullable: false } }
+              - column: { name: byte_size, type: bigint, constraints: { nullable: false } }
+              - column: { name: width, type: int, constraints: { nullable: false } }
+              - column: { name: height, type: int, constraints: { nullable: false } }
+        - createTable:
+            tableName: ped_photo_cleanup
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { nullable: false, primaryKey: true } }
+              - column: { name: storage_key, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: eligible_at, type: timestamp, constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: ped_record_photo
+            columnNames: record_id, position_index
+            constraintName: pk_ped_record_photo
+        - addUniqueConstraint:
+            tableName: ped_record_photo
+            columnNames: id
+            constraintName: uq_ped_record_photo_id
+        - addForeignKeyConstraint:
+            baseTableName: ped_record
+            baseColumnNames: class_id
+            referencedTableName: ped_class
+            referencedColumnNames: id
+            constraintName: fk_ped_record_class
+        - addForeignKeyConstraint:
+            baseTableName: ped_record
+            baseColumnNames: author_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ped_record_author
+        - addForeignKeyConstraint:
+            baseTableName: ped_record_photo
+            baseColumnNames: record_id
+            referencedTableName: ped_record
+            referencedColumnNames: id
+            constraintName: fk_ped_photo_record
+        - createIndex:
+            tableName: ped_record
+            indexName: ix_ped_record_date
+            columns:
+              - column: { name: class_id }
+              - column: { name: activity_date }
+        - createIndex:
+            tableName: ped_photo_cleanup
+            indexName: ix_ped_cleanup_time
+            columns:
+              - column: { name: eligible_at }

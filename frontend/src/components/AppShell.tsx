@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, ListChecks, Home, LogOut, Plus, Settings, Ticket } from "lucide-react";
+import { BookOpen, Bell, CalendarDays, ListChecks, Home, LogOut, Plus, Settings, Ticket } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { logout } from "../api/auth";
@@ -44,6 +44,7 @@ export function AppShell() {
   }
 
   const canAdmin = session.data.roles.includes("ADMIN");
+  const canPedagogical = session.data.roles.some(role => ["ADMIN", "MANAGER", "REQUESTER"].includes(role));
   const canAgenda = session.data.roles.some((role) => role === "MANAGER" || role === "REQUESTER");
 
   return (
@@ -56,6 +57,7 @@ export function AppShell() {
         <nav className={styles.nav}>
           <NavItem to="/tickets" icon={<Home />} label="Fila" />
           <NavItem to="/tickets/new" icon={<Plus />} label="Nova solicitação" />
+          {canPedagogical ? <NavItem to="/pedagogico" icon={<BookOpen />} label="Pedagógico" /> : null}
           {canAgenda ? <NavItem to="/agenda" icon={<CalendarDays />} label="Agenda" /> : null}
           {session.data.roles.includes("MANAGER") ? <NavItem to="/tarefas" icon={<ListChecks />} label="Tarefas" /> : null}
           {canAdmin ? <NavItem to="/admin" icon={<Settings />} label="Administrador" /> : null}
@@ -100,6 +102,7 @@ export function AppShell() {
       <nav className={styles.bottomNav} aria-label="Navegação mobile">
         <NavItem to="/tickets" icon={<Ticket />} label="Fila" />
         <NavItem to="/tickets/new" icon={<Plus />} label="Abrir" />
+        {canPedagogical ? <NavItem to="/pedagogico" icon={<BookOpen />} label="Pedagógico" /> : null}
         {canAgenda ? <NavItem to="/agenda" icon={<CalendarDays />} label="Agenda" /> : null}
         {session.data.roles.includes("MANAGER") ? <NavItem to="/tarefas" icon={<ListChecks />} label="Tarefas" /> : null}
         {canAdmin ? <NavItem to="/admin" icon={<Settings />} label="Admin" /> : null}

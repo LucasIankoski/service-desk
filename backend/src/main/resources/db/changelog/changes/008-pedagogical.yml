@@ -1,0 +1,118 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-pedagogical
+      author: service-desk-team
+      changes:
+        - createTable:
+            tableName: ped_class
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { nullable: false, primaryKey: true } }
+              - column: { name: name, type: varchar(120), constraints: { nullable: false } }
+              - column: { name: archived, type: boolean, constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, constraints: { nullable: false } }
+        - createTable:
+            tableName: ped_allocation
+            columns:
+              - column: { name: class_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: teacher_id, type: varchar(36), constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: ped_allocation
+            columnNames: class_id, teacher_id
+            constraintName: pk_ped_allocation
+        - addForeignKeyConstraint:
+            baseTableName: ped_allocation
+            baseColumnNames: class_id
+            referencedTableName: ped_class
+            referencedColumnNames: id
+            constraintName: fk_ped_alloc_class
+        - addForeignKeyConstraint:
+            baseTableName: ped_allocation
+            baseColumnNames: teacher_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ped_alloc_user
+        - createTable:
+            tableName: ped_planning
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { nullable: false, primaryKey: true } }
+              - column: { name: class_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: week_start, type: date, constraints: { nullable: false } }
+              - column: { name: theme, type: varchar(1000) }
+              - column: { name: status, type: varchar(20), constraints: { nullable: false } }
+              - column: { name: created_by_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, constraints: { nullable: false } }
+        - addUniqueConstraint:
+            tableName: ped_planning
+            columnNames: class_id, week_start
+            constraintName: uq_ped_class_week
+        - addForeignKeyConstraint:
+            baseTableName: ped_planning
+            baseColumnNames: class_id
+            referencedTableName: ped_class
+            referencedColumnNames: id
+            constraintName: fk_ped_plan_class
+        - addForeignKeyConstraint:
+            baseTableName: ped_planning
+            baseColumnNames: created_by_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ped_plan_creator
+        - createTable:
+            tableName: ped_planning_teacher
+            columns:
+              - column: { name: planning_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: teacher_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: display_name, type: varchar(160), constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: ped_planning_teacher
+            columnNames: planning_id, position_index
+            constraintName: pk_ped_plan_teacher
+        - addForeignKeyConstraint:
+            baseTableName: ped_planning_teacher
+            baseColumnNames: planning_id
+            referencedTableName: ped_planning
+            referencedColumnNames: id
+            constraintName: fk_ped_teacher_plan
+        - addForeignKeyConstraint:
+            baseTableName: ped_planning_teacher
+            baseColumnNames: teacher_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ped_teacher_user
+        - createTable:
+            tableName: ped_planning_day
+            columns:
+              - column: { name: planning_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: activity_date, type: date, constraints: { nullable: false } }
+              - column: { name: no_class, type: boolean, constraints: { nullable: false } }
+              - column: { name: reason, type: clob }
+              - column: { name: proposal, type: clob }
+              - column: { name: objectives, type: clob }
+              - column: { name: development, type: clob }
+              - column: { name: resources, type: clob }
+        - addPrimaryKey:
+            tableName: ped_planning_day
+            columnNames: planning_id, position_index
+            constraintName: pk_ped_day
+        - addForeignKeyConstraint:
+            baseTableName: ped_planning_day
+            baseColumnNames: planning_id
+            referencedTableName: ped_planning
+            referencedColumnNames: id
+            constraintName: fk_ped_day_plan
+        - addColumn:
+            tableName: app_settings
+            columns:
+              - column: { name: school_logo_path, type: varchar(500) }
+              - column: { name: school_logo_media_type, type: varchar(100) }
+        - createIndex:
+            tableName: ped_allocation
+            indexName: ix_ped_allocation_teacher
+            columns:
+              - column: { name: teacher_id }

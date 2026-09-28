@@ -1,0 +1,42 @@
+{
+    admin off
+    auto_https disable_redirects
+    default_sni {$LAN_ADDRESS:192.168.1.10}
+}
+
+(application) {
+    encode zstd gzip
+    root * /srv
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        -Server
+    }
+    @privateHealth path /actuator/*
+    handle @privateHealth {
+        respond 404
+    }
+    @api path /api/*
+    handle @api {
+        reverse_proxy api:8080 {
+            header_up X-Forwarded-Proto https
+        }
+    }
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+https://{$LAN_ADDRESS:192.168.1.10}:8443, https://localhost:8443 {
+    tls internal
+    import application
+}
+
+# Only published on host loopback; Cloudflare supplies public HTTPS.
+http://:8088 {
+    import application
+}

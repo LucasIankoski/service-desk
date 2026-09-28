@@ -1,0 +1,19 @@
+[Unit]
+Description=Central de Servicos Amor e Graca - permanent domain tunnel
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=vidalettipam
+WorkingDirectory=/home/vidalettipam/service-desk
+ExecStart=/home/vidalettipam/service-desk/cloudflared tunnel --no-autoupdate --protocol http2 run --token-file /home/vidalettipam/service-desk/secrets/domain-tunnel.token
+Restart=always
+RestartSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
