@@ -13,6 +13,7 @@
   --color-warning: #f2a900;
   --color-canvas: #f5f7fa;
   --color-surface: #ffffff;
+  --color-accent-soft: color-mix(in srgb, var(--color-accent), var(--color-surface) 90%);
   --color-border: #d9e0ea;
   --color-text: #162033;
   --color-muted: #5c6b7c;

@@ -39,11 +39,13 @@ function Classes({ admin }: { admin: boolean }) {
     {editing && <ClassEditor key={editing === "new" ? "new" : editing.id} row={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
     {classes.isPending && <p role="status">Carregando turmas…</p>}
     {classes.error && <p role="alert">{classes.error.message}</p>}
-    <div className={styles.cards}>{rows?.map(c => <article key={c.id} className={styles.card}>
-      <Folder /><h3><Link to={"/pedagogico/turmas/" + c.id}>{c.name}</Link></h3>
+    <div className={styles.cards}>{rows?.map(c => <article key={c.id} className={`${styles.card} ${styles.classCard}`}>
+      <header className={styles.classCardHeading}><Folder aria-hidden /><h3><Link to={"/pedagogico/turmas/" + c.id}>{c.name}</Link></h3></header>
+      <div className={styles.classCardBody}>
       <p>{c.teachers.map(t => t.displayName).join(", ") || "Nenhuma professora alocada"}</p>
       <span>{c.archived ? "Arquivada · consulta" : "Turma ativa"}</span>
       {admin && <Button icon={<Settings />} onClick={() => setEditing(c)}>Gerenciar turma</Button>}
+      </div>
     </article>)}</div>
     {rows?.length === 0 && <p className={styles.empty}>{admin ? "Nenhuma turma encontrada. Cadastre uma turma ou ajuste os filtros." : "Nenhuma turma disponível. Solicite sua alocação à administração."}</p>}
   </>;

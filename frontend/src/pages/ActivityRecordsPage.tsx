@@ -31,7 +31,7 @@ function Records({ classId }: { classId: string }) {
   if (!classroom.data) return <p role="status">Carregando turma…</p>;
   return <section className={base.page}>
     <nav className={base.breadcrumb} aria-label="Diretórios"><Link to="/pedagogico">Turmas</Link><span>/</span><Link to={`/pedagogico/turmas/${classId}`}>{classroom.data.name}</Link><span>/ Registros</span></nav>
-    <header className={base.heading}><div><h2>Registros</h2><p>{classroom.data.name} · Memórias das nossas atividades</p></div><Camera size={36} /></header>
+    <header className={base.heading}><div><h2>Registros</h2><p>{classroom.data.name} · Memórias das nossas propostas</p></div><Camera size={36} /></header>
     <PedagogicalModules classId={classId} />
     {classroom.data.archived && <p>Turma arquivada. Os registros estão disponíveis somente para consulta.</p>}
     <div className={base.toolbar}>
@@ -45,7 +45,7 @@ function Records({ classId }: { classId: string }) {
     <div className={styles.albums}>{records.data?.items.map(r => <Link className={styles.album} key={r.id} to={`/pedagogico/registros/${r.id}`}>
       <PhotoImage photo={r.cover} alt="" /><div><h3>{r.title}</h3><p>{dateLabel(r.activityDate)} · {r.photoCount} {r.photoCount === 1 ? "foto" : "fotos"}</p><small>{r.authorName}</small></div>
     </Link>)}</div>
-    {records.data?.items.length === 0 && <div className={styles.empty}><Camera size={40} /><h3>Nenhum registro neste período</h3><p>Guarde aqui as fotos dos momentos de atividade da turma.</p></div>}
+    {records.data?.items.length === 0 && <div className={styles.empty}><Camera size={40} /><h3>Nenhum registro neste período</h3><p>Guarde aqui as fotos das propostas da turma.</p></div>}
     {records.data && records.data.totalPages > 1 && <nav className={base.toolbar} aria-label="Páginas dos registros">
       <Button disabled={page === 0} onClick={() => setParams({ ...Object.fromEntries(params), pagina: String(page - 1) })}>Anterior</Button>
       <span>Página {page + 1} de {records.data.totalPages}</span>
@@ -92,12 +92,12 @@ function Gallery({ photos, title }: { photos: ActivityPhoto[]; title: string }) 
   const [index, setIndex] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const move = (step: number) => { setFailed(false); setIndex(i => i === null ? null : (i + step + photos.length) % photos.length); };
-  return <><div className={styles.gallery}>{photos.map((photo, i) => <button key={photo.id} onClick={event => { opener.current = event.currentTarget; setFailed(false); setIndex(i); }} aria-label={`Ampliar foto ${i + 1} de ${title}`}><PhotoImage photo={photo} alt={`Foto ${i + 1} da atividade ${title}`} /></button>)}</div>
+  return <><div className={styles.gallery}>{photos.map((photo, i) => <button key={photo.id} onClick={event => { opener.current = event.currentTarget; setFailed(false); setIndex(i); }} aria-label={`Ampliar foto ${i + 1} de ${title}`}><PhotoImage photo={photo} alt={`Foto ${i + 1} da proposta ${title}`} /></button>)}</div>
     <Dialog.Root open={index !== null} onOpenChange={open => { if (!open) setIndex(null); }}><Dialog.Portal><Dialog.Overlay className={styles.overlay} /><Dialog.Content className={styles.lightbox} onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }} onKeyDown={e => {
       if (e.key === "ArrowLeft") { e.preventDefault(); move(-1); } if (e.key === "ArrowRight") { e.preventDefault(); move(1); }
     }}>
       <div className={styles.lightboxHeader}><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>Foto {(index ?? 0) + 1} de {photos.length}</Dialog.Description></div><Dialog.Close asChild><button aria-label="Fechar foto"><X /></button></Dialog.Close></div>
-      {index !== null && (failed ? <p role="alert">Não foi possível carregar a foto. Feche e tente novamente.</p> : <img src={photos[index].url} alt={`Foto ${index + 1} da atividade ${title}`} onError={() => setFailed(true)} />)}
+      {index !== null && (failed ? <p role="alert">Não foi possível carregar a foto. Feche e tente novamente.</p> : <img src={photos[index].url} alt={`Foto ${index + 1} da proposta ${title}`} onError={() => setFailed(true)} />)}
       {photos.length > 1 && <div className={styles.lightboxControls}><button aria-label="Foto anterior" onClick={() => move(-1)}><ChevronLeft />Anterior</button><button aria-label="Próxima foto" onClick={() => move(1)}>Próxima<ChevronRight /></button></div>}
     </Dialog.Content></Dialog.Portal></Dialog.Root>
   </>;
@@ -150,13 +150,13 @@ function RecordEditor({ initial, classId, limit, onCancel, onSaved }: {
     if ([...files, ...selected].reduce((sum, f) => sum + f.size, 0) > 100 * 1024 * 1024) return setError("Envie até 100 MiB de fotos por vez.");
     setFiles([...files, ...selected]);
   };
-  return <form className={base.panel} onSubmit={e => { e.preventDefault(); setError(""); if (!title.trim()) return setError("Informe o título da atividade."); if (!photos.length && !files.length) return setError("Adicione ao menos uma foto."); mutation.mutate(); }}>
+  return <form className={base.panel} onSubmit={e => { e.preventDefault(); setError(""); if (!title.trim()) return setError("Informe o título da proposta."); if (!photos.length && !files.length) return setError("Adicione ao menos uma foto."); mutation.mutate(); }}>
     <h3>{saved ? "Editar registro" : "Novo registro"}</h3>
     {blocker.state === "blocked" && <div role="alert"><p>Existem alterações não salvas.</p><Button type="button" onClick={() => blocker.reset()}>Continuar editando</Button><Button type="button" onClick={() => blocker.proceed()}>Descartar e sair</Button></div>}
-    <fieldset disabled={mutation.isPending}><legend>Dados da atividade</legend>
-      <label>Título da atividade<input required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} /></label>
-      <label>Data da atividade<input required type="date" min="1900-01-01" max="9998-12-31" value={date} onChange={e => setDate(e.target.value)} /></label>
-      <label>Fotos da atividade<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple onChange={e => { add(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-describedby="photo-limits" /></label>
+    <fieldset disabled={mutation.isPending}><legend>Dados da proposta</legend>
+      <label>Título da proposta<input required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} /></label>
+      <label>Data da proposta<input required type="date" min="1900-01-01" max="9998-12-31" value={date} onChange={e => setDate(e.target.value)} /></label>
+      <label>Fotos da proposta<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple onChange={e => { add(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-describedby="photo-limits" /></label>
       <p id="photo-limits">JPG, PNG ou WebP · até {limit} MiB por foto · 20 fotos por registro · 100 MiB por envio. A primeira foto será a capa.</p>
       <div className={styles.previews}>{photos.map((p, i) => <div key={p.id}><PhotoImage photo={p} alt={`Foto ${i + 1}`} /><Button type="button" onClick={() => setPhotos(photos.filter(photo => photo.id !== p.id))}>Remover foto {i + 1}</Button></div>)}{files.map((file, i) => <div key={i}><LocalPhoto file={file} /><Button type="button" onClick={() => setFiles(files.filter((_, j) => i !== j))}>Remover nova foto {i + 1}</Button></div>)}</div>
     </fieldset>

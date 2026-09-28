@@ -55,11 +55,11 @@ export default function NewTicketPage() {
         <Field label="Anexos">
           <label className={styles.files}>
             <Paperclip aria-hidden />
-            <span>{files.length ? `${files.length} arquivo(s) selecionado(s)` : "Selecionar até 5 arquivos"}</span>
+            <span>{files.length ? `${files.length} arquivo(s) selecionado(s)` : "Selecionar até 20 arquivos"}</span>
             <input
               type="file"
               multiple
-              onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 5))}
+              onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 20))}
             />
           </label>
         </Field>

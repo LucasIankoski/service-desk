@@ -787,6 +787,55 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PublicSettings" }
+  /public/settings/manifest.webmanifest:
+    get:
+      security: []
+      summary: Obtém o manifesto do aplicativo com nome e ícones da escola.
+      responses:
+        "200":
+          description: Manifesto público revalidado a cada acesso; URLs de ícones incluem a versão das configurações.
+          content:
+            application/manifest+json:
+              schema:
+                type: object
+                required: [id, name, short_name, start_url, scope, display, background_color, theme_color, icons]
+                properties:
+                  id: { type: string, const: / }
+                  name: { type: string }
+                  short_name: { type: string }
+                  start_url: { type: string, const: / }
+                  scope: { type: string, const: / }
+                  display: { type: string, const: standalone }
+                  background_color: { type: string }
+                  theme_color: { type: string }
+                  icons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        src: { type: string }
+                        sizes: { type: string, enum: [192x192, 512x512] }
+                        type: { type: string, const: image/png }
+                        purpose: { type: string, const: 'any maskable' }
+  /public/settings/app-icon/{size}.png:
+    get:
+      security: []
+      summary: Gera o ícone quadrado a partir da logo ou usa o símbolo padrão da escola.
+      parameters:
+        - name: size
+          in: path
+          required: true
+          schema: { type: integer, enum: [32, 180, 192, 512] }
+        - name: v
+          in: query
+          description: Versão usada para renovar a URL; a imagem sempre reflete a configuração atual.
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: PNG com fundo branco e margens, sem distorcer a logo.
+          content:
+            image/png: { schema: { type: string, format: binary } }
+        "404": { description: Tamanho não suportado. }
   /public/settings/login-background:
     get:
       security: []
@@ -1120,7 +1169,7 @@ paths:
                   properties:
                     description: { type: string, maxLength: 8000 }
                     categoryId: { type: string, format: uuid }
-                files: { type: array, maxItems: 5, items: { type: string, format: binary } }
+                files: { type: array, maxItems: 20, items: { type: string, format: binary } }
       responses:
         "200":
           description: Solicitação criada.
@@ -1227,7 +1276,7 @@ paths:
                   properties:
                     body: { type: string, maxLength: 4000 }
                     visibility: { $ref: "#/components/schemas/CommentVisibility" }
-                files: { type: array, maxItems: 5, items: { type: string, format: binary } }
+                files: { type: array, maxItems: 20, items: { type: string, format: binary } }
       responses:
         "200":
           description: Comentário criado.
@@ -1891,7 +1940,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/Id'
     get:
-      summary: Listar álbuns da turma (24 por página; data da atividade decrescente)
+      summary: Listar álbuns da turma (24 por página; data da proposta decrescente)
       parameters:
         - { name: year, in: query, schema: { type: integer, minimum: 1900, maximum: 9998 } }
         - { name: month, in: query, description: Exige year., schema: { type: integer, minimum: 1, maximum: 12 } }

@@ -88,7 +88,7 @@ Multi-tenancy, departamentos, catálogo, base de conhecimento, aprovações, SSO
 - ADMIN/MANAGER gerenciam todos os álbuns. Solicitantes ativos alocados consultam todos da turma; somente a autora atualmente alocada pode editar/excluir. Turmas arquivadas permitem apenas consulta. Autoria histórica é preservada.
 - Remoção de alocação, desativação ou perda de perfil revoga também o acesso às URLs dos originais e miniaturas. Respostas de imagens usam no-store.
 - JPG, PNG e WebP exigem assinatura e decodificação válidas, até 60 megapixels. Limite individual reutiliza as configurações existentes; cada envio permite até 100 MiB. Miniaturas JPEG de até 640 pixels respeitam orientação EXIF; originais são preservados.
-- Listagem paginada em 24 itens, data da atividade decrescente e desempate por criação/UUID. Filtros por ano e mês; mês exige ano.
+- Listagem paginada em 24 itens, data da proposta decrescente e desempate por criação/UUID. Filtros por ano e mês; mês exige ano.
 - APIs multipart enviam metadata como JSON e files como partes repetidas. retainedPhotoIds indica fotos existentes a manter. Alterações/exclusões exigem versão; conflitos retornam 409 sem sobrescrever dados.
 - As alterações são publicadas atomicamente. Arquivos novos são registrados em fila durável antes da escrita; após uma hora o coletor remove somente arquivos sem referência. Exclusões entram na fila na mesma transação e tornam-se elegíveis imediatamente. O coletor roda a cada minuto, em lotes de 100; falhas de disco são repetidas após cinco minutos.
 - Migração 009 é aditiva e portável. Auditoria registra identificação e tipo da operação sem título nem fotos.

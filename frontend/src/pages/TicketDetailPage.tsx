@@ -120,8 +120,8 @@ export default function TicketDetailPage() {
                       {canOperate ? <option value="INTERNAL">Nota interna</option> : null}
                     </SelectInput>
                   </Field>
-                  <Field label="Anexos">
-                    <TextInput type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 5))} />
+                  <Field label="Anexos (até 20 arquivos)">
+                    <TextInput type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 20))} />
                   </Field>
                 </div>
                 <Button type="submit" variant="primary" icon={<MessageSquare />} disabled={mutateComment.isPending}>
