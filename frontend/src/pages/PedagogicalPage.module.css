@@ -1,0 +1,66 @@
+.page { display: grid; gap: 24px; max-width: 1500px; margin: auto; }
+.heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.heading h2 { font-size: 2rem; margin: 4px 0; }
+.heading span, .heading p { color: var(--color-muted); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.page label { display: grid; gap: 6px; font-weight: 600; }
+.page input:not([type=checkbox]), .page select, .page textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); }
+.page textarea { resize: vertical; min-height: 80px; }
+.page .check { display: flex; align-items: center; gap: 8px; font-weight: 400; padding: 6px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 18px; }
+.card { padding: 24px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); display: grid; gap: 12px; text-decoration: none; }
+.card h3, .card p { margin: 0; }
+.card:hover { border-color: var(--color-primary); }
+.card p, .card small { color: var(--color-muted); }
+.panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 24px; display: grid; gap: 18px; }
+.page fieldset { border: 1px solid var(--color-border); border-radius: 10px; padding: 16px; min-width: 0; display: grid; gap: 12px; }
+.page legend { font-weight: 600; padding: 0 8px; }
+.modules { display: flex; flex-wrap: wrap; gap: 12px; }
+.modules > * { display: flex; align-items: center; gap: 8px; padding: 16px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
+.modules small { color: var(--color-muted); }
+.folders, .breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.breadcrumb button { background: none; border: 0; text-decoration: underline; color: inherit; cursor: pointer; padding: 4px; }
+.status { display: inline-block; font-weight: 600; color: var(--color-ink); }
+.empty { text-align: center; padding: 40px; color: var(--color-muted); }
+.error { color: var(--color-danger); }
+.dayFields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.screenOnly { display: grid; gap: 20px; }
+.preview { overflow-x: auto; padding: 4px; }
+.printOnly { display: none; }
+.document { background: white; color: black; padding: 24px; min-width: 780px; font-family: Arial, sans-serif; }
+.documentHeader { display: grid; grid-template-columns: 1fr 1.5fr 100px; gap: 20px; align-items: center; margin-bottom: 28px; }
+.documentHeader h2 { font-size: 22px; margin: 0 0 4px; }
+.documentHeader h3 { font-size: 16px; margin: 0; }
+.documentHeader p { margin: 6px 0; }
+.documentHeader img { width: 100px; max-height: 100px; object-fit: contain; }
+.document table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; }
+.document th, .document td { border: 1px solid black; padding: 8px; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.document thead th { background: #abc7ee; color: black; }
+.document td { height: 80px; }
+.theme { text-align: center; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.draftMark { text-align: center; font-weight: bold; }
+@media (max-width: 700px) {
+  .dayFields { grid-template-columns: 1fr; }
+  .panel { padding: 14px; }
+  .toolbar > label { flex: 1 1 150px; }
+}
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  :global(body) { background: white !important; min-width: 0; }
+  :global(body:has([data-pedagogical-document]) #root) > div { display: block !important; }
+  :global(body:has([data-pedagogical-document]) aside), :global(body:has([data-pedagogical-document]) nav), :global(body:has([data-pedagogical-document]) main) ~ * { display: none !important; }
+  :global(body:has([data-pedagogical-document]) #root) > div > div > header { display: none !important; }
+  :global(body:has([data-pedagogical-document]) main) { padding: 0 !important; margin: 0 !important; }
+  .screenOnly { display: none !important; }
+  .printOnly, .preview { display: block; overflow: visible; padding: 0; }
+  .page { display: block; max-width: none; margin: 0; }
+  .document { min-width: 0; padding: 0; }
+  .document thead { display: table-header-group; }
+  .document tr { break-inside: auto; }
+  .document td { height: auto; min-height: 0; }
+  .documentHeader { break-inside: avoid; }
+  .document th { print-color-adjust: exact; }
+}
+
+.modules a { color: var(--color-text); text-decoration: none; }
+.modules a[aria-current="page"] { border-color: var(--color-primary); font-weight: 700; }

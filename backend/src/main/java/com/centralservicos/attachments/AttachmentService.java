@@ -83,6 +83,13 @@ public class AttachmentService {
         return new StoredFile(key, inspected.mediaType(), inspected.content().length, inspected.sha256());
     }
 
+    public record ImageUpload(byte[] content, String mediaType) {}
+
+    public ImageUpload inspectImage(MultipartFile file, int perFileLimitMb) {
+        var inspected = inspect(file, perFileLimitMb, Set.of("jpg", "jpeg", "png", "webp"));
+        return new ImageUpload(inspected.content(), inspected.mediaType());
+    }
+
     @Transactional(readOnly = true)
     public List<AttachmentView> listTicketFiles(UUID ticketId) {
         return repository.findAllByTicketIdOrderByCreatedAtAsc(ticketId).stream()

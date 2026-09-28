@@ -7,6 +7,10 @@ import { PublicSettingsContext } from "./PublicSettingsContext";
 import { AppShell } from "../components/AppShell";
 import { LoadingScreen } from "../components/LoadingScreen";
 
+const ActivityRecordsPage = lazy(() => import("../pages/ActivityRecordsPage"));
+const PedagogicalPage = lazy(() => import("../pages/PedagogicalPage"));
+const PedagogicalPlanPage = lazy(() => import("../pages/PedagogicalPlanPage"));
+
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const TicketListPage = lazy(() => import("../pages/TicketListPage"));
 const NewTicketPage = lazy(() => import("../pages/NewTicketPage"));
@@ -34,6 +38,11 @@ const router = createBrowserRouter([
       { path: "tickets", element: <TicketListPage /> },
       { path: "tickets/new", element: <NewTicketPage /> },
       { path: "tickets/:id", element: <TicketDetailPage /> },
+      { path: "pedagogico", element: <PedagogicalPage /> },
+      { path: "pedagogico/turmas/:classId", element: <PedagogicalPage /> },
+      { path: "pedagogico/turmas/:classId/registros", element: <ActivityRecordsPage /> },
+      { path: "pedagogico/registros/:recordId", element: <ActivityRecordsPage /> },
+      { path: "pedagogico/planejamentos/:planId", element: <PedagogicalPlanPage /> },
       { path: "agenda", element: <AgendaPage /> },
       { path: "tarefas", element: <TasksPage /> },
       { path: "change-password", element: <ChangePasswordPage /> },

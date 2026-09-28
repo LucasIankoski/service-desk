@@ -127,6 +127,31 @@ public class SettingsService {
                 settings.smtpFromName(), settings.smtpFromAddress(), settings.smtpUsername(), password);
     }
 
+    @Transactional
+    public AdminSettingsView updateSchoolLogo(MultipartFile file, long version, UUID actorId) {
+        var settings = required();
+        assertVersion(settings, version);
+        if (file == null) settings.updateSchoolLogo(null, null);
+        else {
+            var stored = attachments.storeBrandingImage(file, settings.attachmentLimitMb());
+            settings.updateSchoolLogo(stored.key(), stored.mediaType());
+        }
+        repository.flush();
+        audit.record(actorId, "SETTINGS_SCHOOL_LOGO_UPDATED", "AppSettings", AppSettings.SINGLETON_ID, null);
+        return toAdmin(settings);
+    }
+
+    @Transactional(readOnly = true)
+    public StoredResource loadSchoolLogo() {
+        var settings = required();
+        if (settings.schoolLogoPath() == null) throw DomainException.notFound("Logotipo não configurado.");
+        return attachments.loadStored(settings.schoolLogoPath(), settings.schoolLogoMediaType(), "school-logo");
+    }
+
+    private String logoUrl(AppSettings settings) {
+        return settings.schoolLogoPath() == null ? null : "/api/v1/public/settings/school-logo?v=" + settings.rowVersion();
+    }
+
     private AppSettings required() {
         return repository.findById(AppSettings.SINGLETON_ID)
                 .orElseThrow(() -> DomainException.notFound("Configurações não encontradas."));
@@ -241,13 +266,13 @@ public class SettingsService {
     private PublicSettingsView toPublic(AppSettings settings) {
         var loginUrl = settings.loginBackgroundPath() == null ? null : "/api/v1/public/settings/login-background";
         return new PublicSettingsView(settings.institutionName(), settings.supportEmail(), settings.supportPhone(),
-                settings.timezoneName(), theme(settings), loginUrl, settings.rowVersion(), settings.updatedAt());
+                settings.timezoneName(), theme(settings), loginUrl, logoUrl(settings), settings.rowVersion(), settings.updatedAt());
     }
 
     private AdminSettingsView toAdmin(AppSettings settings) {
         return new AdminSettingsView(settings.institutionName(), settings.supportEmail(), settings.supportPhone(),
                 settings.timezoneName(), settings.attachmentLimitMb(), settings.reopenDays(),
-                theme(settings), settings.loginBackgroundPath() != null,
+                theme(settings), settings.loginBackgroundPath() != null, logoUrl(settings),
                 new AdminSettingsView.SmtpView(settings.smtpHost(), settings.smtpPort(), settings.smtpTls(),
                         settings.smtpFromName(), settings.smtpFromAddress(), settings.smtpUsername(),
                         settings.smtpPasswordEnc() != null),

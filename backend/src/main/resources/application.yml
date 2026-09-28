@@ -19,6 +19,7 @@ spring:
           time_zone: UTC
         type:
           preferred_uuid_jdbc_type: VARCHAR
+          preferred_instant_jdbc_type: TIMESTAMP
         order_inserts: true
         order_updates: true
   liquibase:

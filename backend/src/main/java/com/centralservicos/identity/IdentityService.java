@@ -95,6 +95,15 @@ public class IdentityService {
     }
 
     @Transactional(readOnly = true)
+    public List<AssigneeView> activeRequesters() {
+        var ids = users.findActiveIdsWithAnyRole(Set.of(Role.REQUESTER));
+        return users.findAllByIdIn(ids).stream()
+                .map(user -> new AssigneeView(user.id(), user.displayName()))
+                .sorted(Comparator.comparing(AssigneeView::displayName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<AssigneeView> activeManagers() {
         var ids = users.findActiveIdsWithAnyRole(Set.of(Role.MANAGER));
         return users.findAllByIdIn(ids).stream()

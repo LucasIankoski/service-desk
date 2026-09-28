@@ -29,6 +29,11 @@ class FileSystemAttachmentStorage implements AttachmentStorage {
     }
 
     @Override
+    public void delete(String key) throws IOException {
+        Files.deleteIfExists(resolve(key));
+    }
+
+    @Override
     public StoredResource load(String key, String mediaType, String filename) throws IOException {
         var target = resolve(key);
         if (!Files.isRegularFile(target)) {

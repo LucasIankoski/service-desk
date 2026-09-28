@@ -28,6 +28,8 @@ class AppSettings {
     private String canvasColor;
     private String loginBackgroundPath;
     private String loginBackgroundMediaType;
+    private String schoolLogoPath;
+    private String schoolLogoMediaType;
     private String smtpHost;
     private Integer smtpPort;
     private boolean smtpTls;
@@ -55,6 +57,9 @@ class AppSettings {
     String canvasColor() { return canvasColor; }
     String loginBackgroundPath() { return loginBackgroundPath; }
     String loginBackgroundMediaType() { return loginBackgroundMediaType; }
+    String schoolLogoPath() { return schoolLogoPath; }
+    String schoolLogoMediaType() { return schoolLogoMediaType; }
+    void updateSchoolLogo(String path, String mediaType) { schoolLogoPath = path; schoolLogoMediaType = mediaType; touch(); }
     String smtpHost() { return smtpHost; }
     Integer smtpPort() { return smtpPort; }
     boolean smtpTls() { return smtpTls; }

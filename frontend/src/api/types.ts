@@ -64,6 +64,7 @@ export type Theme = {
 };
 
 export type PublicSettings = {
+  schoolLogoUrl?: string | null;
   institutionName: string;
   supportEmail?: string | null;
   supportPhone?: string | null;

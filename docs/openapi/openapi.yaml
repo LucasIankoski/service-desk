@@ -9,6 +9,23 @@ security:
   - sessionCookie: []
 
 components:
+  requestBodies:
+    ActivityRecordUpload:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [metadata]
+            properties:
+              metadata: { $ref: '#/components/schemas/ActivityRecordInput' }
+              files:
+                type: array
+                maxItems: 20
+                items: { type: string, format: binary }
+                description: JPG/PNG/WebP. Limite por foto configurado; até 100 MiB por envio e 60 megapixels por imagem. Total final entre 1 e 20 fotos.
+          encoding:
+            metadata: { contentType: application/json }
   securitySchemes:
     sessionCookie:
       type: apiKey
@@ -100,6 +117,7 @@ components:
       type: object
       required: [institutionName, timezoneName, theme, version, updatedAt]
       properties:
+        schoolLogoUrl: { type: [string, "null"] }
         institutionName: { type: string }
         supportEmail: { type: [string, "null"], format: email }
         supportPhone: { type: [string, "null"] }
@@ -123,6 +141,7 @@ components:
       type: object
       required: [institutionName, timezoneName, attachmentLimitMb, reopenDays, theme, loginBackgroundConfigured, smtp, version, updatedAt]
       properties:
+        schoolLogoUrl: { type: [string, "null"] }
         institutionName: { type: string }
         supportEmail: { type: [string, "null"], format: email }
         supportPhone: { type: [string, "null"] }
@@ -437,6 +456,324 @@ components:
         correlationId: { type: [string, "null"] }
         errors: { type: object, additionalProperties: { type: string } }
 
+    PedTeacher:
+      type: object
+      required:
+      - id
+      - displayName
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+    PedClass:
+      type: object
+      required:
+      - id
+      - name
+      - archived
+      - teachers
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        archived:
+          type: boolean
+        teachers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedTeacher'
+        version:
+          type: integer
+          format: int64
+    PedClassInput:
+      type: object
+      required:
+      - name
+      - teacherIds
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        archived:
+          type: boolean
+        teacherIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        version:
+          type: integer
+          format: int64
+    PedDayInput:
+      type: object
+      required: []
+      properties:
+        noClass:
+          type: boolean
+        reason:
+          type:
+          - string
+          - 'null'
+          maxLength: 4000
+        proposal:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        objectives:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        development:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        resources:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+    PedDay:
+      type: object
+      required:
+      - date
+      - noClass
+      properties:
+        date:
+          type: string
+          format: date
+        noClass:
+          type: boolean
+        reason:
+          type:
+          - string
+          - 'null'
+          maxLength: 4000
+        proposal:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        objectives:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        development:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        resources:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+    PedEdit:
+      type: object
+      required:
+      - version
+      - teacherIds
+      - days
+      properties:
+        version:
+          type: integer
+          format: int64
+        theme:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+        teacherIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedDayInput'
+          minItems: 5
+          maxItems: 5
+    PedVersion:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int64
+    PedSummary:
+      type: object
+      required:
+      - id
+      - classId
+      - weekStart
+      - weekEnd
+      - status
+      - teachers
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        theme:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - FINALIZED
+        teachers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedTeacher'
+        version:
+          type: integer
+          format: int64
+    PedPlan:
+      type: object
+      required:
+      - id
+      - classId
+      - weekStart
+      - weekEnd
+      - status
+      - teachers
+      - version
+      - className
+      - archived
+      - days
+      properties:
+        id:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        theme:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - FINALIZED
+        teachers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedTeacher'
+        version:
+          type: integer
+          format: int64
+        className:
+          type: string
+        archived:
+          type: boolean
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedDay'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ActivityPhoto:
+      type: object
+      required: [id, url, thumbnailUrl, width, height]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string }
+        thumbnailUrl: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+    ActivityRecordInput:
+      type: object
+      required: [title, activityDate, retainedPhotoIds]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        activityDate: { type: string, format: date }
+        version: { type: integer, format: int64, minimum: 0, description: Obrigatória na atualização. }
+        retainedPhotoIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: Fotos existentes a manter; ordem original preservada. Vazio na criação.
+    ActivityRecord:
+      type: object
+      required: [id, classId, className, archived, title, activityDate, authorId, authorName, photos, version, canEdit, createdAt, updatedAt, attachmentLimitMb]
+      properties:
+        id: { type: string, format: uuid }
+        classId: { type: string, format: uuid }
+        className: { type: string }
+        archived: { type: boolean }
+        title: { type: string }
+        activityDate: { type: string, format: date }
+        authorId: { type: string, format: uuid }
+        authorName: { type: string }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityPhoto' }
+        version: { type: integer, format: int64 }
+        canEdit: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        attachmentLimitMb: { type: integer }
+    ActivityRecordSummary:
+      type: object
+      required: [id, classId, title, activityDate, authorName, photoCount, cover, version]
+      properties:
+        id: { type: string, format: uuid }
+        classId: { type: string, format: uuid }
+        title: { type: string }
+        activityDate: { type: string, format: date }
+        authorName: { type: string }
+        photoCount: { type: integer }
+        cover: { $ref: '#/components/schemas/ActivityPhoto' }
+        version: { type: integer, format: int64 }
+    ActivityRecordPage:
+      type: object
+      required: [items, page, totalPages, totalElements, attachmentLimitMb]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityRecordSummary' }
+        page: { type: integer }
+        totalPages: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        attachmentLimitMb: { type: integer }
 paths:
   /public/settings:
     get:
@@ -1219,3 +1556,437 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AuditPage" }
+
+  /pedagogical/classes:
+    get:
+      summary: Turmas visíveis ao usuário
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PedClass'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    post:
+      summary: Cadastrar turma (ADMIN ou MANAGER)
+      responses:
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedClass'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedClassInput'
+  /pedagogical/teachers:
+    get:
+      summary: Solicitantes ativos elegíveis para alocação (ADMIN ou MANAGER)
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PedTeacher'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /pedagogical/classes/{id}:
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      summary: Consultar turma autorizada
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedClass'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    put:
+      summary: Atualizar turma, alocações ou arquivamento; version obrigatório
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedClass'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedClassInput'
+  /pedagogical/classes/{id}/plans:
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      summary: Semanas que intersectam o período; mês exige ano
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PedSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      parameters:
+      - in: query
+        name: year
+        schema:
+          type: integer
+          minimum: 1900
+          maximum: 9998
+      - in: query
+        name: month
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 12
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - FINALIZED
+      - in: query
+        name: teacherId
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Criar semana compartilhada; weekStart deve ser segunda-feira
+      responses:
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - weekStart
+              properties:
+                weekStart:
+                  type: string
+                  format: date
+  /pedagogical/plans/{id}:
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    get:
+      summary: Consultar planejamento autorizado
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    put:
+      summary: Salvar rascunho; cinco dias ordenados de segunda a sexta
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedEdit'
+  /pedagogical/plans/{id}/finalize:
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    post:
+      summary: Finalizar planejamento
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedVersion'
+  /pedagogical/plans/{id}/reopen:
+    parameters:
+    - $ref: '#/components/parameters/Id'
+    post:
+      summary: Reabrir planejamento
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedVersion'
+  /admin/settings/school-logo:
+    post:
+      summary: Enviar logotipo (ADMIN)
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      parameters:
+      - in: query
+        name: version
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+    delete:
+      summary: Remover logotipo (ADMIN)
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      parameters:
+      - in: query
+        name: version
+        required: true
+        schema:
+          type: integer
+          format: int64
+  /public/settings/school-logo:
+    get:
+      summary: Imagem do logotipo institucional
+      security: []
+      responses:
+        '200':
+          description: Imagem
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Logotipo não configurado
+  /pedagogical/classes/{id}/records:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      summary: Listar álbuns da turma (24 por página; data da atividade decrescente)
+      parameters:
+        - { name: year, in: query, schema: { type: integer, minimum: 1900, maximum: 9998 } }
+        - { name: month, in: query, description: Exige year., schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, maximum: 100000, default: 0 } }
+      responses:
+        '200':
+          description: Álbuns visíveis à pessoa autenticada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityRecordPage' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      summary: Criar registro com título, data e fotos
+      description: ADMIN/MANAGER ou solicitante atualmente alocada. Turma ativa. Publicação atômica ao salvar.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/ActivityRecordUpload'
+      responses:
+        '201':
+          description: Registro criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityRecord' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { description: Limite individual configurado ou total de 100 MiB excedido. }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /pedagogical/records/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      summary: Consultar álbum autorizado
+      responses:
+        '200':
+          description: Registro
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityRecord' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro não encontrado. }
+    put:
+      summary: Atualizar registro e seleção de fotos
+      description: Exige versão atual e autoria com alocação vigente ou perfil administrativo. Turma ativa.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/ActivityRecordUpload'
+      responses:
+        '200':
+          description: Registro atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityRecord' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { description: Limite de envio excedido. }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      summary: Excluir registro e agendar limpeza de suas fotos
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: version, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '204': { description: Excluído. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /pedagogical/records/{id}/photos/{photoId}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Foto original com autorização atual da turma
+      responses:
+        '200':
+          description: Imagem privada. Cache-Control no-store. Revogação também se aplica à URL direta.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro ou foto não encontrado. }
+  /pedagogical/records/{id}/photos/{photoId}/thumbnail:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Miniatura JPEG com autorização atual da turma
+      responses:
+        '200':
+          description: Imagem privada. Cache-Control no-store. Revogação também se aplica à URL direta.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro ou foto não encontrado. }

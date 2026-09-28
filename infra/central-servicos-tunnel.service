@@ -1,0 +1,18 @@
+[Unit]
+Description=Central de Servicos Amor e Graca - provisional HTTPS tunnel
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/vidalettipam/service-desk
+ExecStart=/usr/bin/python3 /home/vidalettipam/service-desk/quick-tunnel.py
+Restart=always
+RestartSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -13,3 +13,7 @@ databaseChangeLog:
       file: db/changelog/changes/006-agenda-shift.yml
   - include:
       file: db/changelog/changes/007-simplify-tickets.yml
+  - include:
+      file: db/changelog/changes/008-pedagogical.yml
+  - include:
+      file: db/changelog/changes/009-pedagogical-records.yml

@@ -1,3 +1,4 @@
+import { SchoolLogoSettings } from "../components/SchoolLogoSettings";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, KeyRound, MailCheck, Palette, Plus, RotateCcw, Shield, Users } from "lucide-react";
@@ -54,7 +55,7 @@ export default function AdminPage() {
         <Tabs.Content value="users"><UsersTab /></Tabs.Content>
         <Tabs.Content value="categories"><CategoriesTab /></Tabs.Content>
         <Tabs.Content value="general"><GeneralTab /></Tabs.Content>
-        <Tabs.Content value="theme"><ThemeTab /></Tabs.Content>
+        <Tabs.Content value="theme"><ThemeTab /><div className={styles.panel}><SchoolLogoSettings /></div></Tabs.Content>
         <Tabs.Content value="smtp"><SmtpTab /></Tabs.Content>
         <Tabs.Content value="audit"><AuditTab /></Tabs.Content>
       </Tabs.Root>

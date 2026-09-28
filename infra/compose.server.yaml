@@ -1,0 +1,89 @@
+name: central-servicos
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: service_desk
+      POSTGRES_USER: service_desk
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U service_desk -d service_desk"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  api:
+    image: central-servicos-api:deploy-20260908
+    restart: unless-stopped
+    environment:
+      DB_VENDOR: postgresql
+      DB_URL: jdbc:postgresql://postgres:5432/service_desk
+      DB_USERNAME: service_desk
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL}
+      APP_ENCRYPTION_KEY_FILE: /run/secrets/app_encryption_key
+      ATTACHMENTS_PATH: /var/lib/service-desk/attachments
+      SESSION_SECURE: "true"
+    secrets:
+      - app_encryption_key
+    volumes:
+      - attachments:/var/lib/service-desk/attachments
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://localhost:8080/actuator/health/readiness"]
+      start_period: 60s
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  frontend:
+    image: central-servicos-frontend:deploy-20260908
+    restart: unless-stopped
+    environment:
+      LAN_ADDRESS: ${LAN_ADDRESS:-192.168.1.10}
+    ports:
+      - "8443:8443"
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, "wget -q --spider http://localhost:8088/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+secrets:
+  app_encryption_key:
+    file: ./secrets/app_encryption_key
+
+volumes:
+  postgres_data:
+  attachments:
+  caddy_data:
+  caddy_config:
