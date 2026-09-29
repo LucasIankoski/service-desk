@@ -144,7 +144,7 @@ function RecordEditor({ initial, classId, limit, onCancel, onSaved }: {
   });
   const add = (selected: File[]) => {
     setError("");
-    if (photos.length + files.length + selected.length > 20) return setError("Cada registro pode ter até 20 fotos.");
+    if (photos.length + files.length + selected.length > 50) return setError("Cada registro pode ter até 50 fotos.");
     if (selected.some(f => !/\.(jpe?g|png|webp)$/i.test(f.name))) return setError("Use fotos JPG, PNG ou WebP.");
     if (selected.some(f => f.size === 0 || f.size > limit * 1024 * 1024)) return setError(`Cada foto deve ter entre 1 byte e ${limit} MiB.`);
     if ([...files, ...selected].reduce((sum, f) => sum + f.size, 0) > 100 * 1024 * 1024) return setError("Envie até 100 MiB de fotos por vez.");
@@ -157,7 +157,7 @@ function RecordEditor({ initial, classId, limit, onCancel, onSaved }: {
       <label>Título da proposta<input required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} /></label>
       <label>Data da proposta<input required type="date" min="1900-01-01" max="9998-12-31" value={date} onChange={e => setDate(e.target.value)} /></label>
       <label>Fotos da proposta<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple onChange={e => { add(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-describedby="photo-limits" /></label>
-      <p id="photo-limits">JPG, PNG ou WebP · até {limit} MiB por foto · 20 fotos por registro · 100 MiB por envio. A primeira foto será a capa.</p>
+      <p id="photo-limits">JPG, PNG ou WebP · até {limit} MiB por foto · 50 fotos por registro · 100 MiB por envio. A primeira foto será a capa.</p>
       <div className={styles.previews}>{photos.map((p, i) => <div key={p.id}><PhotoImage photo={p} alt={`Foto ${i + 1}`} /><Button type="button" onClick={() => setPhotos(photos.filter(photo => photo.id !== p.id))}>Remover foto {i + 1}</Button></div>)}{files.map((file, i) => <div key={i}><LocalPhoto file={file} /><Button type="button" onClick={() => setFiles(files.filter((_, j) => i !== j))}>Remover nova foto {i + 1}</Button></div>)}</div>
     </fieldset>
     {(error || mutation.error) && <p role="alert" className={base.error}>{error || mutation.error?.message}</p>}

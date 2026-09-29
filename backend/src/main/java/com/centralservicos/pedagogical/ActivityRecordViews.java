@@ -6,7 +6,7 @@ import java.util.*;
 
 final class ActivityRecordViews {
     record Input(@NotBlank @Size(max = 200) String title, @NotNull LocalDate activityDate,
-                 @PositiveOrZero Long version, @NotNull @Size(max = 20) List<@NotNull UUID> retainedPhotoIds) {}
+                 @PositiveOrZero Long version, @NotNull @Size(max = 50) List<@NotNull UUID> retainedPhotoIds) {}
     record Photo(UUID id, String url, String thumbnailUrl, int width, int height) {}
     record Summary(UUID id, String classId, String title, LocalDate activityDate, String authorName,
                    int photoCount, Photo cover, long version) {}

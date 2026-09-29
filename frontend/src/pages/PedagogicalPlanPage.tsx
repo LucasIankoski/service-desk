@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useBlocker, useParams } from "react-router";
+import { Link, useBlocker, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Printer, Save } from "lucide-react";
+import { DeletePedagogicalDocument } from "../components/DeletePedagogicalDocument";
+import { deletePlan } from "../api/pedagogical";
 import { Button } from "../components/Button";
 import { usePublicSettings } from "../app/PublicSettingsContext";
 import { getPlan, getClass, savePlan, transitionPlan, dateLabel } from "../api/pedagogical";
@@ -26,20 +28,28 @@ function inputOf(p: Planning): PlanningInput {
 function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolClass }) {
   const settings = usePublicSettings();
   const client = useQueryClient();
+  const navigate = useNavigate();
+  const [deleted, setDeleted] = useState(false);
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(() => inputOf(initial));
   const [preview, setPreview] = useState(false);
   const [conflict, setConflict] = useState<Planning | null>(null);
   const [message, setMessage] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(inputOf(saved));
-  const blocker = useBlocker(dirty);
+  const blocker = useBlocker(dirty && !deleted);
+  useEffect(() => {
+    if (!deleted) return;
+    void client.invalidateQueries({ queryKey: ["pedagogical", "plans"] });
+    void client.invalidateQueries({ queryKey: ["pedagogical", "plan", saved.id], refetchType: "none" });
+    void navigate(`/pedagogico/turmas/${saved.classId}`, { replace: true });
+  }, [deleted, client, navigate, saved.classId, saved.id]);
   const locked = saved.status === "FINALIZED" || classroom.archived;
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty || deleted) return;
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [dirty]);
+  }, [dirty, deleted]);
   const accept = (p: Planning) => {
     setSaved(p); setDraft(inputOf(p)); setConflict(null);
     client.setQueryData(["pedagogical", "plan", p.id], p);
@@ -77,6 +87,11 @@ function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolCl
         {saved.status === "FINALIZED" && !classroom.archived && <Button disabled={mutation.isPending} onClick={() => mutation.mutate("reopen")}>Reabrir</Button>}
         <Button onClick={() => setPreview(!preview)}>{preview ? "Voltar ao formulário" : "Visualizar / Imprimir"}</Button>
         {preview && <Button icon={<Printer />} onClick={() => window.print()}>Imprimir / Salvar PDF</Button>}
+        {!classroom.archived && <DeletePedagogicalDocument kind="planejamento" label={saved.theme || `${dateLabel(saved.weekStart)} a ${dateLabel(saved.weekEnd)}`} dirty={dirty}
+          disabled={mutation.isPending || !!conflict} remove={() => deletePlan(saved.id, saved.version)}
+          onDeleted={() => setDeleted(true)} onConflict={async () => {
+            try { setConflict(await getPlan(saved.id)); } catch { /* Keep local input and the deletion error visible. */ }
+          }} />}
         {dirty && <span>Alterações não salvas</span>}
       </div>
       {message && <p role="status">{message}</p>}

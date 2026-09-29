@@ -140,6 +140,15 @@ public class PedagogicalService {
         audit.record(actor.id(), finalize ? "PED_PLANNING_FINALIZED" : "PED_PLANNING_REOPENED", "WeeklyPlanning", id, null);
         return view(p, c);
     }
+    @Transactional
+    public void delete(UUID id, long expected, AuthenticatedUser actor) {
+        admin(actor);
+        var p = required(id);
+        writable(classroom(p.classId, actor, true));
+        version(p.rowVersion, expected);
+        plans.delete(p); plans.flush();
+        audit.record(actor.id(), "PED_PLANNING_DELETED", "WeeklyPlanning", id, null);
+    }
     private boolean blank(String value) { return value == null || value.isBlank(); }
     private WeeklyPlanning required(UUID id) { return plans.findById(id).orElseThrow(() -> DomainException.notFound("Planejamento não encontrado.")); }
     private ClassView classView(SchoolClass c) {

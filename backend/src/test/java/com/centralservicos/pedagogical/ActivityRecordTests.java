@@ -52,7 +52,7 @@ class ActivityRecordTests {
         assertThat(edited.photos()).hasSize(1); assertThat(edited.version()).isGreaterThan(r.version());
         assertThatThrownBy(() -> records.update(r.id(), input("Antigo", r.version(), List.of(photo.id())), List.of(), author)).hasMessageContaining("mudou");
         assertThatThrownBy(() -> records.delete(r.id(), r.version(), admin)).hasMessageContaining("mudou");
-        assertThatThrownBy(() -> records.update(r.id(), input("Sem foto", edited.version(), List.of()), List.of(), author)).hasMessageContaining("1 e 20");
+        assertThatThrownBy(() -> records.update(r.id(), input("Sem foto", edited.version(), List.of()), List.of(), author)).hasMessageContaining("1 e 50");
         records.delete(r.id(), edited.version(), admin);
         assertThatThrownBy(() -> records.get(r.id(), author)).isInstanceOf(DomainException.class);
         // Database timestamp precision varies; make asynchronous cleanup deterministically due.
@@ -99,7 +99,7 @@ class ActivityRecordTests {
         assertThatThrownBy(() -> records.create(c.id(), input("Teste", null, List.of()), List.of(png(), bad), author)).isInstanceOf(DomainException.class);
         assertThat(records.list(c.id(), null, null, 0, author).items()).isEmpty();
         assertThatThrownBy(() -> records.create(c.id(), input(" ", null, List.of()), List.of(png()), author)).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> records.create(c.id(), input("Teste", null, List.of()), Collections.nCopies(21, png()), author)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> records.create(c.id(), input("Teste", null, List.of()), Collections.nCopies(51, png()), author)).isInstanceOf(DomainException.class);
         var huge = new MockMultipartFile("files", "foto.png", "image/png", new byte[1]) { @Override public long getSize() { return 101L * 1024 * 1024; } };
         assertThatThrownBy(() -> records.create(c.id(), input("Teste", null, List.of()), List.of(huge), author)).hasMessageContaining("100 MiB");
         var r = records.create(c.id(), input("Original", null, List.of()), List.of(png()), author);
@@ -139,6 +139,21 @@ class ActivityRecordTests {
         cleanup.clean();
         assertThat(original.resource().exists()).isTrue();
         assertThat(abandoned.resource().exists()).isFalse();
+    }
+
+    @Test void fiftyPhotosCanBeRetainedAndReplacedWithoutChangingTheirOrder() throws Exception {
+        var actor = roleUser(Role.MANAGER);
+        var c = classes.saveClass(null, new ClassInput("50 fotos", false, List.of(), null), actor);
+        var r = records.create(c.id(), input("Completo", null, List.of()), Collections.nCopies(50, png()), actor);
+        assertThat(r.photos()).hasSize(50);
+        assertThatThrownBy(() -> records.update(r.id(), input("Excesso", r.version(), ids(r)), List.of(png()), actor))
+            .hasMessageContaining("1 e 50");
+        var kept = ids(r).subList(1, 50);
+        var updated = records.update(r.id(), input("Substituída", r.version(), kept), List.of(png()), actor);
+        assertThat(updated.photos()).hasSize(50);
+        assertThat(ids(updated).subList(0, 49)).containsExactlyElementsOf(kept);
+        assertThat(records.get(r.id(), actor).photos()).isEqualTo(updated.photos());
+        records.delete(updated.id(), updated.version(), actor);
     }
 
     static MockMultipartFile png() throws IOException {

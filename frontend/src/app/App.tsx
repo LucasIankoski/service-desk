@@ -10,6 +10,8 @@ import { LoadingScreen } from "../components/LoadingScreen";
 const ActivityRecordsPage = lazy(() => import("../pages/ActivityRecordsPage"));
 const PedagogicalPage = lazy(() => import("../pages/PedagogicalPage"));
 const PedagogicalPlanPage = lazy(() => import("../pages/PedagogicalPlanPage"));
+const ProjectsPage = lazy(() => import("../pages/ProjectsPage"));
+const ProjectPage = lazy(() => import("../pages/ProjectPage"));
 
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const TicketListPage = lazy(() => import("../pages/TicketListPage"));
@@ -43,6 +45,8 @@ const router = createBrowserRouter([
       { path: "pedagogico/turmas/:classId/registros", element: <ActivityRecordsPage /> },
       { path: "pedagogico/registros/:recordId", element: <ActivityRecordsPage /> },
       { path: "pedagogico/planejamentos/:planId", element: <PedagogicalPlanPage /> },
+      { path: "pedagogico/turmas/:classId/projetos", element: <ProjectsPage /> },
+      { path: "pedagogico/projetos/:projectId", element: <ProjectPage /> },
       { path: "agenda", element: <AgendaPage /> },
       { path: "tarefas", element: <TasksPage /> },
       { path: "change-password", element: <ChangePasswordPage /> },

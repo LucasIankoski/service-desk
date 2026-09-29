@@ -1,0 +1,35 @@
+.screenOnly { display: grid; gap: 20px; }
+.preview { max-width: 100%; overflow-x: auto; background: var(--color-canvas); padding: 8px; }
+.printOnly { display: none; }
+.document { box-sizing: border-box; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 3.8mm 25.4mm 12mm; background: white; color: black; font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.32; overflow-wrap: anywhere; }
+.documentHeader { text-align: center; }
+.documentHeader img { display: block; width: 26mm; height: 26mm; object-fit: contain; margin: 0 auto 2mm; }
+.document h1 { font-size: 17pt; line-height: 1.2; margin: 0 0 6mm; text-transform: uppercase; }
+.metadata { margin-bottom: 5mm; }
+.document p { margin: 0 0 3.5mm; text-align: justify; white-space: pre-wrap; }
+.document h2, .document h3 { font-size: 11pt; line-height: 1.32; font-weight: 700; margin: 0; break-after: avoid; }
+.document section { margin: 0 0 4.5mm; }
+.document h3 { margin: 4.5mm 0 4mm; }
+.document > section:last-child > h2 { margin-bottom: 4mm; }
+.document ul { margin: 0 0 3.5mm; padding-left: 12.5mm; }
+.document li { padding-left: 0; white-space: pre-wrap; text-align: justify; }
+.general h2 { display: inline-block; white-space: nowrap; margin-right: 2mm; }
+.general > p:first-of-type { display: inline; }
+.general > p:not(:first-of-type) { margin-top: 3.5mm; }
+.general { text-align: justify; }
+.document .draftMark { text-align: center; font-weight: 700; }
+.activity { break-inside: auto; }
+.document p, .document li { orphans: 2; widows: 2; }
+@media print {
+  @page pedagogical-project { size: A4 portrait; margin: 6mm 25.4mm 12mm; }
+  @page pedagogical-project:first { margin-top: 3.8mm; }
+  :global(body:has([data-project-document])) { background: white !important; min-width: 0; }
+  :global(body:has([data-project-document]) #root) > div { display: block !important; }
+  :global(body:has([data-project-document]) aside), :global(body:has([data-project-document]) nav), :global(body:has([data-project-document]) main) ~ * { display: none !important; }
+  :global(body:has([data-project-document]) #root) > div > div > header { display: none !important; }
+  :global(body:has([data-project-document]) main) { padding: 0 !important; margin: 0 !important; }
+  .screenOnly { display: none !important; }
+  .printOnly, .preview { display: block; padding: 0; overflow: visible; }
+  .document { page: pedagogical-project; width: auto; min-height: 0; padding: 0; margin: 0; }
+  .documentHeader { break-inside: avoid; }
+}
