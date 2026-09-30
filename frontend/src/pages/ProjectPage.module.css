@@ -13,10 +13,7 @@
 .document > section:last-child > h2 { margin-bottom: 4mm; }
 .document ul { margin: 0 0 3.5mm; padding-left: 12.5mm; }
 .document li { padding-left: 0; white-space: pre-wrap; text-align: justify; }
-.general h2 { display: inline-block; white-space: nowrap; margin-right: 2mm; }
-.general > p:first-of-type { display: inline; }
-.general > p:not(:first-of-type) { margin-top: 3.5mm; }
-.general { text-align: justify; }
+.general h2 { white-space: nowrap; }
 .document .draftMark { text-align: center; font-weight: 700; }
 .activity { break-inside: auto; }
 .document p, .document li { orphans: 2; widows: 2; }
