@@ -44,3 +44,13 @@ Backup antes da atualização local: `output/backups/pre-registros-20260927.dump
 Em 27/09/2026, API e frontend foram reconstruídos e atualizados em `https://localhost:8443`. A migração `009-pedagogical-records` consta como `EXECUTED`. A página pedagógica e o novo arquivo JavaScript responderam HTTP 200; a API de registros sem autenticação respondeu HTTP 401. O banco PostgreSQL e os volumes existentes foram mantidos.
 
 Para validar: **Pedagógico → turma → Registros → Novo registro**. Informe título, data e fotos; salve, abra a galeria e amplie uma imagem. A autora ou a administração pode editar e excluir o registro.
+
+## Até 50 fotos por registro — 29/09/2026
+
+- Cadastro e edição permitem de 1 a 50 fotos no total, somando as fotos mantidas e as novas. O formulário informa o limite e recusa seleções que o ultrapassem.
+- Permanecem o limite configurado por foto, os formatos JPG/PNG/WebP e o limite de 100 MiB por envio. Álbuns maiores podem ser preenchidos em mais de um envio, respeitando o total de 50 fotos.
+- O servidor aceita 51 partes multipart: 50 arquivos e os metadados JSON. Não há alteração de esquema de banco.
+- Regressão: enviar 50 fotos de uma vez, editar mantendo as 50, recusar a adição da 51ª sem alterar o registro e substituir uma das 50 fotos preservando a ordem das restantes.
+- `ActivityRecordUploadTests` cobre o fluxo com HTTP real e Tomcat; `ActivityRecordTests` cobre as regras e permissões existentes. `records.spec.ts` cobre a seleção acumulada, a recusa de excesso e a remoção para liberar espaço.
+- Validação: `mvnw verify` aprovado com 73 testes, incluindo seis testes de Registros e um teste HTTP real com 50 fotos; build e dez cenários E2E em Chromium desktop e WebKit mobile aprovados. OpenAPI validado sem chaves duplicadas e com referências locais resolvidas.
+- A substituição de fotos agora libera as posições antigas da coleção antes de gravar a nova ordem, na mesma transação, evitando conflito de identificadores únicos. Executar a matriz de bancos de Registros novamente antes da release dessa correção de persistência.

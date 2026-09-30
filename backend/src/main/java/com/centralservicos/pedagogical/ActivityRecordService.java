@@ -94,8 +94,8 @@ class ActivityRecordService {
         if (keep.size() != input.retainedPhotoIds().size() || !record.photos.stream().map(p -> p.id).toList().containsAll(keep))
             throw DomainException.unprocessable("Seleção de fotos inválida.");
         var uploads = files == null ? List.<MultipartFile>of() : files;
-        if (keep.size() + uploads.size() < 1 || keep.size() + uploads.size() > 20)
-            throw DomainException.unprocessable("Cada registro deve ter entre 1 e 20 fotos.");
+        if (keep.size() + uploads.size() < 1 || keep.size() + uploads.size() > 50)
+            throw DomainException.unprocessable("Cada registro deve ter entre 1 e 50 fotos.");
         if (uploads.stream().mapToLong(MultipartFile::getSize).sum() > 100L * 1024 * 1024)
             throw new DomainException(HttpStatus.PAYLOAD_TOO_LARGE, "Envie até 100 MiB de fotos por vez.");
         int limit = settings.ticketPolicy().attachmentLimitMb();
@@ -111,7 +111,13 @@ class ActivityRecordService {
             added.add(new ActivityPhoto(photoId, original, thumbnail, image.mediaType(), image.original().length, image.width(), image.height()));
         }
         record.photos.stream().filter(p -> !keep.contains(p.id)).forEach(cleanup::removed);
-        record.photos.removeIf(p -> !keep.contains(p.id)); record.photos.addAll(added);
+        if (record.photos.stream().anyMatch(p -> !keep.contains(p.id))) {
+            var retained = record.photos.stream().filter(p -> keep.contains(p.id)).toList();
+            // Release unique photo IDs before Hibernate rewrites the ordered collection positions.
+            record.photos.clear(); records.flush();
+            record.photos.addAll(retained);
+        }
+        record.photos.addAll(added);
         record.title = input.title().trim(); record.activityDate = input.activityDate(); record.updatedAt = Instant.now();
     }
     private static String extension(String mediaType) {

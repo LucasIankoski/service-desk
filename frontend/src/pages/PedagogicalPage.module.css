@@ -45,7 +45,7 @@
   .toolbar > label { flex: 1 1 150px; }
 }
 @media print {
-  @page { size: A4 landscape; margin: 12mm; }
+  @page pedagogical-planning { size: A4 landscape; margin: 12mm; }
   :global(body) { background: white !important; min-width: 0; }
   :global(body:has([data-pedagogical-document]) #root) > div { display: block !important; }
   :global(body:has([data-pedagogical-document]) aside), :global(body:has([data-pedagogical-document]) nav), :global(body:has([data-pedagogical-document]) main) ~ * { display: none !important; }
@@ -54,7 +54,7 @@
   .screenOnly { display: none !important; }
   .printOnly, .preview { display: block; overflow: visible; padding: 0; }
   .page { display: block; max-width: none; margin: 0; }
-  .document { min-width: 0; padding: 0; }
+  .document { page: pedagogical-planning; min-width: 0; padding: 0; }
   .document thead { display: table-header-group; }
   .document tr { break-inside: auto; }
   .document td { height: auto; min-height: 0; }

@@ -73,18 +73,32 @@ Multi-tenancy, departamentos, catálogo, base de conhecimento, aprovações, SSO
 - Turmas podem ter várias professoras e professoras podem integrar várias turmas. Arquivar mantém consulta/impressão e bloqueia alterações até reativar.
 - Diretórios virtuais: Turma / Ano / Mês / Semana. A semana é segunda–sexta; um único planejamento por turma e segunda-feira. Semanas entre meses/anos aparecem nos dois períodos sem duplicação.
 - Estados DRAFT e FINALIZED. Rascunhos aceitam dados parciais; finalização exige tema, responsável e os quatro campos de cada dia, ou Sem aula com motivo.
-- Qualquer professora atualmente alocada, MANAGER ou ADMIN pode finalizar/reabrir. Não há aprovação, exclusão, anexos ou edição em tempo real.
+- Qualquer professora atualmente alocada, MANAGER ou ADMIN pode finalizar/reabrir. Não há aprovação, anexos ou edição em tempo real. ADMIN e MANAGER ativos podem excluir rascunhos e finalizados de turmas ativas, com confirmação e versão atual.
 - Responsáveis são registradas com nome histórico na criação. Em rascunho podem ser mantidas/removidas; novas responsáveis são selecionadas entre solicitantes ativas alocadas. Remanejamentos não alteram o documento.
 - API /api/v1/pedagogical: turmas e alocações em /classes, elegíveis em /teachers, semanas em /classes/{id}/plans, conteúdo/transições em /plans/{id}. Dias da edição são cinco objetos ordenados de segunda a sexta; datas são geradas no servidor.
 - Edições exigem version; conflitos retornam 409 e preservam o formulário. Consultas e escrita verificam autorização no backend. Alterações são auditadas sem conteúdo pedagógico nos logs.
 - Impressão em A4 paisagem com indicação de rascunho e alterações não salvas. Nome institucional e logotipo opcional vêm das configurações; apenas ADMIN altera o logotipo.
-- Projetos e Atividade Pedagógica aparecem como Em breve.
+- Projetos e Registros possuem áreas próprias dentro de cada turma.
+
+## Pedagógico — Projetos
+
+- Um projeto pertence a uma turma, com vários projetos permitidos no mesmo período. Listagem por ano/mês inclui todos os meses abrangidos; filtros de status e responsável.
+- Permissões, nomes históricos de responsáveis, arquivamento, remanejamento e proteção por versão seguem o Planejamento. ADMIN/MANAGER e professoras ativas atualmente alocadas podem criar, editar, finalizar e reabrir.
+- Criação exige título e datas inicial/final válidas, entre 1900 e 9998. Rascunhos aceitam demais seções incompletas. Finalização exige faixa etária, ao menos uma responsável, objetivo geral, objetivos específicos não vazios, atividades completas e conclusão.
+- O formulário usa caixas de texto simples para Objetivo geral, Objetivos específicos, Desenvolvimento e Conclusão, como no Planejamento. Objetivos são digitados um por linha e viram marcadores automaticamente; linhas vazias são ignoradas ao salvar. Não há inclusão de blocos, botões de formatação ou datas individuais de atividades. O período geral permanece.
+- Desenvolvimento livre é persistido como um único item sem data/título. Atividades históricas com datas continuam preservadas; suas datas pertencem ao período e sua ordenação permanece estável. Ao editar o desenvolvimento antigo, subtítulos e textos são apresentados em um único campo.
+- Conteúdo formatado usa blocos PARAGRAPH/BULLET/HEADING com trechos de texto e indicador bold. A representação interna preserva a formatação histórica; o usuário preenche apenas texto. O backend valida a estrutura e o frontend renderiza elementos React sem interpretar HTML. Fonte, tamanho, cor e alinhamento são fixos.
+- Limites: título 300 caracteres, faixa etária 200, até 100 responsáveis e objetivos, 2.000 caracteres por objetivo, até 200 atividades; cada texto formatado tem até 100 blocos, 100 trechos por bloco e 40.000 caracteres no total.
+- APIs em `/api/v1/pedagogical/classes/{id}/projects` e `/projects/{id}`, com `/finalize` e `/reopen`. Edições/transições exigem versão, retornam 409 em conflito e preservam o formulário. Auditoria não inclui conteúdo pedagógico.
+- Documento em A4 vertical, com logotipo configurado apenas no início, título centralizado, período, faixa etária, objetivos, desenvolvimento e conclusão. Turma e responsáveis constam na gestão; rascunhos e alterações não salvas são identificados na impressão.
+- Exportação pela impressão do navegador, em escala 100%, sem cabeçalhos/rodapés automáticos. Projetos e Planejamento usam páginas CSS nomeadas para isolar retrato e paisagem.
+- Migração 010 cria Projetos; migração 011 permite desenvolvimento sem datas e mantém registros existentes. ADMIN e MANAGER ativos podem excluir projetos em rascunho ou finalizados de turmas ativas, com confirmação e versão atual. Não há anexos ou compartilhamento entre turmas; o PDF de referência não é importado como projeto.
 
 
 ## Pedagógico — Registros
 
 - A opção Registros substitui Atividade Pedagógica e apresenta álbuns por turma/data, independentes dos planejamentos.
-- Cadastro publicado ao salvar: título de até 200 caracteres, data civil entre 1900 e 9998, uma a vinte fotos. A primeira foto é a capa. A ordem de envio é preservada.
+- Cadastro publicado ao salvar: título de até 200 caracteres, data civil entre 1900 e 9998, uma a cinquenta fotos. A primeira foto é a capa. A ordem de envio é preservada.
 - ADMIN/MANAGER gerenciam todos os álbuns. Solicitantes ativos alocados consultam todos da turma; somente a autora atualmente alocada pode editar/excluir. Turmas arquivadas permitem apenas consulta. Autoria histórica é preservada.
 - Remoção de alocação, desativação ou perda de perfil revoga também o acesso às URLs dos originais e miniaturas. Respostas de imagens usam no-store.
 - JPG, PNG e WebP exigem assinatura e decodificação válidas, até 60 megapixels. Limite individual reutiliza as configurações existentes; cada envio permite até 100 MiB. Miniaturas JPEG de até 640 pixels respeitam orientação EXIF; originais são preservados.
@@ -93,3 +107,11 @@ Multi-tenancy, departamentos, catálogo, base de conhecimento, aprovações, SSO
 - As alterações são publicadas atomicamente. Arquivos novos são registrados em fila durável antes da escrita; após uma hora o coletor remove somente arquivos sem referência. Exclusões entram na fila na mesma transação e tornam-se elegíveis imediatamente. O coletor roda a cada minuto, em lotes de 100; falhas de disco são repetidas após cinco minutos.
 - Migração 009 é aditiva e portável. Auditoria registra identificação e tipo da operação sem título nem fotos.
 - Galeria responsiva com carregamento tardio; ampliação preserva proporção, permite teclado e devolve foco à miniatura. Salvamento explícito e aviso de saída; falhas preservam dados locais.
+
+### Exclusão de documentos pedagógicos
+
+- O botão Excluir fica no editor de Planejamento e Projeto, disponível para Administrativo (MANAGER) e Administrador (ADMIN). Professoras não podem excluir, mesmo quando responsáveis pelo documento.
+- A confirmação identifica o documento e avisa que a exclusão é definitiva. Se houver preenchimento local não salvo, ele também será descartado somente após a confirmação e o sucesso da exclusão.
+- Turmas arquivadas precisam ser reativadas antes da exclusão. Documentos finalizados podem ser excluídos sem reabertura.
+- DELETE `/api/v1/pedagogical/plans/{id}?version=...` e `/api/v1/pedagogical/projects/{id}?version=...` exigem sessão, CSRF e versão atual; retornam 204. Conflitos retornam 409 e preservam o texto local para revisão.
+- A remoção inclui os dados dependentes do documento, sem remover a turma ou outros documentos. Eventos PED_PLANNING_DELETED e PED_PROJECT_DELETED registram autor e identificador, sem conteúdo pedagógico, na mesma transação.

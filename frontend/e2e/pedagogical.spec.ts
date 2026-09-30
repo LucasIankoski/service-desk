@@ -11,6 +11,7 @@ async function setup(page: Page, roles = ["MANAGER"]) {
     days: ["2026-09-28","2026-09-29","2026-09-30","2026-10-01","2026-10-02"].map(date => ({ date, noClass: false, reason: "", proposal: "", objectives: "", development: "", resources: "" }))
   };
   let conflict = false;
+  let deleted = false;
   await page.route("**/api/v1/**", async route => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -29,10 +30,16 @@ async function setup(page: Page, roles = ["MANAGER"]) {
       if (method === "PUT") classroom = { ...classroom, ...route.request().postDataJSON(), version: classroom.version + 1 };
       return json(classroom);
     }
-    if (path.endsWith("/classes/class/plans")) return json(method === "POST" ? plan : [plan], method === "POST" ? 201 : 200);
+    if (path.endsWith("/classes/class/plans")) return json(method === "POST" ? plan : deleted ? [] : [plan], method === "POST" ? 201 : 200);
     if (path.endsWith("/plans/plan/finalize")) { plan.status = "FINALIZED"; plan.version++; return json(plan); }
     if (path.endsWith("/plans/plan/reopen")) { plan.status = "DRAFT"; plan.version++; return json(plan); }
     if (path.endsWith("/plans/plan")) {
+      if (method === "DELETE") {
+        if (conflict) { conflict = false; plan.version++; return json({ detail: "Este registro mudou." }, 409); }
+        expect(new URL(route.request().url()).searchParams.get("version")).toBe(String(plan.version));
+        deleted = true; return route.fulfill({ status: 204 });
+      }
+      if (deleted) return json({ detail: "Registro não encontrado." }, 404);
       if (method === "PUT") {
         if (conflict) { conflict = false; plan.theme = "Texto da colega"; plan.version++; return json({ detail: "Este registro mudou." }, 409); }
         const input = route.request().postDataJSON();
@@ -107,6 +114,7 @@ test("professora não gerencia turmas e editor é acessível", async ({ page }) 
   await expect(page.getByRole("button", { name: "Nova turma" })).toHaveCount(0);
   await page.goto("/pedagogico/planejamentos/plan");
   await expect(page.getByLabel("Tema / Projeto / Experiência da semana", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Excluir planejamento", exact: true })).toHaveCount(0);
   await page.evaluate(axe.source);
   const results = await page.evaluate(async () => window.axe.run(document.querySelector("main")!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } }));
   expect(results.violations).toEqual([]);
@@ -126,3 +134,31 @@ test("prévia longa em tablet e impressão sem corte de conteúdo", async ({ pag
   await expect(page.getByRole("banner")).toBeHidden();
   if (info.project.name === "chromium-desktop") await page.pdf({ path: info.outputPath("planejamento-longo.pdf"), preferCSSPageSize: true });
 });
+
+ test("exclusão administrativa confirma descarte e volta à listagem", async ({ page }) => {
+  await setup(page);
+  await page.goto("/pedagogico/planejamentos/plan");
+  await page.getByLabel("Tema / Projeto / Experiência da semana", { exact: true }).fill("Texto não salvo");
+  await page.getByRole("button", { name: "Excluir planejamento", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("alterações não salvas também serão descartadas");
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(page.getByLabel("Tema / Projeto / Experiência da semana", { exact: true })).toHaveValue("Texto não salvo");
+  await page.getByRole("button", { name: "Excluir planejamento", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar exclusão", exact: true }).click();
+  await expect(page).toHaveURL("/pedagogico/turmas/class");
+  await expect(page.getByText("Existem alterações não salvas.", { exact: false })).toHaveCount(0);
+  await expect(page.locator('a[href="/pedagogico/planejamentos/plan"]')).toHaveCount(0);
+ });
+ test("conflito na exclusão preserva preenchimento", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/pedagogico/planejamentos/plan");
+  await page.getByLabel("Tema / Projeto / Experiência da semana", { exact: true }).fill("Meu texto local");
+  state.conflict();
+  await page.getByRole("button", { name: "Excluir planejamento", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar exclusão", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Seu preenchimento foi preservado");
+  await expect(page.getByRole("button", { name: "Confirmar exclusão", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(page.getByLabel("Tema / Projeto / Experiência da semana", { exact: true })).toHaveValue("Meu texto local");
+  await expect(page.getByRole("heading", { name: "Outra pessoa alterou este planejamento" })).toBeVisible();
+ });

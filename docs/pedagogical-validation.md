@@ -48,3 +48,11 @@ A configuração Hibernate preferred_instant_jdbc_type usa TIMESTAMP, em conjunt
 - SQL Server 2022: migração 008 e 3 testes passaram sobre a base isolada; instalação inicial completa bloqueada pelo problema antigo de cascatas da migração 001.
 - PDF A4 paisagem inspecionado visualmente em três páginas, com cabeçalho da tabela repetido e conteúdo completo.
 - Firefox/Playwright: falha de inicialização do executável (spawn UNKNOWN), inclusive após reinstalação. Os cenários não chegaram à aplicação; validação nesse navegador permanece pendente.
+
+## Exclusão administrativa — 29/09/2026
+
+- MANAGER e ADMIN podem excluir planejamentos em rascunho ou finalizados de turmas ativas, após confirmação. Professoras não podem excluir.
+- A operação exige versão atual e CSRF; turmas arquivadas continuam somente para consulta. Confirmação, conflitos e texto local seguem o [roteiro compartilhado de exclusão](projects-validation.md#exclusão-administrativa--roteiro).
+- `PedagogicalTests` inclui exclusão, auditoria sem conteúdo, recriação da mesma semana, contas inativas, perda de perfil administrativo e autorização HTTP.
+- Validação desta entrega: backend `verify` com 71 testes, 24 testes unitários do frontend, build e 32 cenários E2E de Projetos/Planejamento em Chromium e WebKit aprovados.
+- Matriz de exclusão: 12 testes por banco aprovados em PostgreSQL, MySQL, Oracle e SQL Server (base isolada).

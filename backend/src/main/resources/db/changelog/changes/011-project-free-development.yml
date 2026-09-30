@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-project-free-development
+      author: service-desk-team
+      changes:
+        - dropNotNullConstraint:
+            tableName: ped_project_activity
+            columnName: activity_date
+            columnDataType: date

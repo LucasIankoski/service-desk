@@ -403,3 +403,7 @@ databaseChangeLog:
     file: db/changelog/changes/008-pedagogical.yml
 - include:
     file: db/changelog/changes/009-pedagogical-records.yml
+- include:
+    file: db/changelog/changes/010-pedagogical-projects.yml
+- include:
+    file: db/changelog/changes/011-project-free-development.yml

@@ -89,8 +89,8 @@ test("aviso de saída, limites de fotos e exclusão confirmada", async ({ page }
   await page.getByRole("button", { name: "Continuar editando" }).click();
   await page.getByLabel("Fotos da proposta").setInputFiles({ ...file, name: "foto.heic" });
   await expect(page.getByRole("alert")).toContainText("JPG, PNG ou WebP");
-  await page.getByLabel("Fotos da proposta").setInputFiles(Array.from({ length: 21 }, (_, i) => ({ ...file, name: `${i}.png` })));
-  await expect(page.getByRole("alert")).toContainText("20 fotos");
+  await page.getByLabel("Fotos da proposta").setInputFiles(Array.from({ length: 48 }, (_, i) => ({ ...file, name: `${i}.png` })));
+  await expect(page.getByRole("alert")).toContainText("50 fotos");
   await page.getByRole("link", { name: "Registros", exact: true }).click();
   await page.getByRole("button", { name: "Descartar e sair" }).click();
   await page.goto("/pedagogico/registros/album");
@@ -106,4 +106,23 @@ test("colega consulta sem editar e turma arquivada bloqueia cadastro", async ({ 
   await expect(page.getByRole("button", { name: "Excluir registro" })).toHaveCount(0);
   await page.getByRole("link", { name: "Registros", exact: true }).click();
   await expect(page.getByRole("button", { name: "Novo registro" })).toHaveCount(0);
+});
+
+test("aceita cinquenta fotos contando as já salvas e bloqueia a próxima", async ({ page }) => {
+  await setup(page);
+  await page.goto("/pedagogico/registros/album");
+  await page.getByRole("button", { name: "Editar registro" }).click();
+  const input = page.getByLabel("Fotos da proposta");
+  await input.setInputFiles(Array.from({ length: 47 }, (_, i) => ({ ...file, name: `${i}.png` })));
+  await expect(page.getByRole("button", { name: /^Remover nova foto / })).toHaveCount(47);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await input.setInputFiles(file);
+  await expect(page.getByRole("alert")).toContainText("50 fotos");
+  await expect(page.getByRole("button", { name: /^Remover nova foto / })).toHaveCount(47);
+  await page.getByRole("button", { name: "Remover foto 1", exact: true }).click();
+  await input.setInputFiles(file);
+  await expect(page.getByRole("button", { name: /^Remover nova foto / })).toHaveCount(48);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByRole("button", { name: "Salvar registro", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Editar registro", exact: true })).toBeVisible();
 });

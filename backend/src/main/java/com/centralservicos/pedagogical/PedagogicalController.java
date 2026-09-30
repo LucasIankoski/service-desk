@@ -26,6 +26,8 @@ class PedagogicalController {
     }
     @PostMapping("/classes/{id}/plans") @ResponseStatus(HttpStatus.CREATED)
     PlanView create(@PathVariable UUID id, @Valid @RequestBody CreateInput input) { return service.create(id, input.weekStart(), user.required()); }
+    @DeleteMapping("/plans/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable UUID id, @RequestParam long version) { service.delete(id, version, user.required()); }
     @GetMapping("/plans/{id}") PlanView get(@PathVariable UUID id) { return service.get(id, user.required()); }
     @PutMapping("/plans/{id}") PlanView edit(@PathVariable UUID id, @Valid @RequestBody EditInput input) { return service.edit(id, input, user.required()); }
     @PostMapping("/plans/{id}/finalize") PlanView finalizePlan(@PathVariable UUID id, @Valid @RequestBody VersionInput input) {

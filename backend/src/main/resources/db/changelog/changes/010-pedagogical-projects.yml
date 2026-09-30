@@ -1,0 +1,97 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-pedagogical-projects
+      author: service-desk-team
+      changes:
+        - createTable:
+            tableName: ped_project
+            columns:
+              - column: { name: id, type: varchar(36), constraints: { nullable: false, primaryKey: true } }
+              - column: { name: class_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: title, type: varchar(300), constraints: { nullable: false } }
+              - column: { name: start_date, type: date, constraints: { nullable: false } }
+              - column: { name: end_date, type: date, constraints: { nullable: false } }
+              - column: { name: age_range, type: varchar(200) }
+              - column: { name: status, type: varchar(20), constraints: { nullable: false } }
+              - column: { name: general_objective, type: clob, constraints: { nullable: false } }
+              - column: { name: conclusion, type: clob, constraints: { nullable: false } }
+              - column: { name: created_by_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: row_version, type: bigint, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: ped_project
+            baseColumnNames: class_id
+            referencedTableName: ped_class
+            referencedColumnNames: id
+            constraintName: fk_ped_project_class
+        - addForeignKeyConstraint:
+            baseTableName: ped_project
+            baseColumnNames: created_by_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_ped_project_creator
+        - createTable:
+            tableName: ped_project_teacher
+            columns:
+              - column: { name: project_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: teacher_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: display_name, type: varchar(160), constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: ped_project_teacher
+            columnNames: project_id, position_index
+            constraintName: pk_ped_project_teacher
+        - addForeignKeyConstraint:
+            baseTableName: ped_project_teacher
+            baseColumnNames: project_id
+            referencedTableName: ped_project
+            referencedColumnNames: id
+            constraintName: fk_project_teacher
+        - createTable:
+            tableName: ped_project_objective
+            columns:
+              - column: { name: project_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: objective_text, type: clob }
+        - addPrimaryKey:
+            tableName: ped_project_objective
+            columnNames: project_id, position_index
+            constraintName: pk_ped_project_objective
+        - addForeignKeyConstraint:
+            baseTableName: ped_project_objective
+            baseColumnNames: project_id
+            referencedTableName: ped_project
+            referencedColumnNames: id
+            constraintName: fk_project_objective
+        - createTable:
+            tableName: ped_project_activity
+            columns:
+              - column: { name: project_id, type: varchar(36), constraints: { nullable: false } }
+              - column: { name: position_index, type: int, constraints: { nullable: false } }
+              - column: { name: activity_date, type: date, constraints: { nullable: false } }
+              - column: { name: title, type: varchar(300) }
+              - column: { name: description, type: clob, constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: ped_project_activity
+            columnNames: project_id, position_index
+            constraintName: pk_ped_project_activity
+        - addForeignKeyConstraint:
+            baseTableName: ped_project_activity
+            baseColumnNames: project_id
+            referencedTableName: ped_project
+            referencedColumnNames: id
+            constraintName: fk_project_activity
+        - addForeignKeyConstraint:
+            baseTableName: ped_project_teacher
+            baseColumnNames: teacher_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_project_teacher_user
+        - createIndex:
+            tableName: ped_project
+            indexName: ix_ped_project_period
+            columns:
+              - column: { name: class_id }
+              - column: { name: start_date }
+              - column: { name: end_date }

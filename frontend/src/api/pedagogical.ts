@@ -16,6 +16,7 @@ export interface Planning extends PlanSummary {
 export interface ClassInput { name: string; archived: boolean; teacherIds: string[]; version?: number }
 export interface PlanningInput { version: number; theme: string; teacherIds: string[]; days: PlanningDay[] }
 const base = "/api/v1/pedagogical";
+export const deletePlan = (id: string, version: number) => apiFetch<void>(`${base}/plans/${id}?version=${version}`, { method: "DELETE" });
 export const listClasses = () => apiFetch<SchoolClass[]>(base + "/classes");
 export const getClass = (id: string) => apiFetch<SchoolClass>(base + "/classes/" + id);
 export const listTeachers = () => apiFetch<Teacher[]>(base + "/teachers");

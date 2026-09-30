@@ -21,9 +21,9 @@ components:
               metadata: { $ref: '#/components/schemas/ActivityRecordInput' }
               files:
                 type: array
-                maxItems: 20
+                maxItems: 50
                 items: { type: string, format: binary }
-                description: JPG/PNG/WebP. Limite por foto configurado; até 100 MiB por envio e 60 megapixels por imagem. Total final entre 1 e 20 fotos.
+                description: JPG/PNG/WebP. Limite por foto configurado; até 100 MiB por envio e 60 megapixels por imagem. Total final entre 1 e 50 fotos.
           encoding:
             metadata: { contentType: application/json }
   securitySchemes:
@@ -76,6 +76,78 @@ components:
         application/problem+json:
           schema: { $ref: "#/components/schemas/ProblemDetail" }
   schemas:
+    ProjectRun:
+      type: object
+      required: [text, bold]
+      properties:
+        text: { type: string, maxLength: 40000 }
+        bold: { type: boolean }
+    ProjectBlock:
+      type: object
+      required: [type, runs]
+      properties:
+        type: { type: string, enum: [PARAGRAPH, BULLET, HEADING] }
+        runs: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ProjectRun' } }
+    ProjectRichText:
+      type: object
+      description: Até 40.000 caracteres no total. Blocos BULLET consecutivos formam uma lista. HEADING preserva subtítulos históricos. O formulário usa texto simples e não interpreta HTML.
+      required: [blocks]
+      properties:
+        blocks: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ProjectBlock' } }
+    ProjectActivity:
+      type: object
+      description: O formulário simplificado envia um único item, com date nulo e title vazio, contendo todo o desenvolvimento. Atividades históricas com data e título continuam aceitas e preservadas.
+      required: [title, description]
+      properties:
+        date: { type: [string, "null"], format: date }
+        title: { type: string, maxLength: 300 }
+        description: { $ref: '#/components/schemas/ProjectRichText' }
+    ProjectCreate:
+      type: object
+      required: [title, startDate, endDate]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    ProjectInput:
+      allOf:
+        - $ref: '#/components/schemas/ProjectCreate'
+        - type: object
+          required: [version, ageRange, teacherIds, generalObjective, specificObjectives, activities, conclusion]
+          properties:
+            version: { type: integer, format: int64 }
+            ageRange: { type: string, maxLength: 200 }
+            teacherIds: { type: array, maxItems: 100, items: { type: string, format: uuid } }
+            generalObjective: { $ref: '#/components/schemas/ProjectRichText' }
+            specificObjectives: { type: array, maxItems: 100, items: { type: string, maxLength: 2000 } }
+            activities: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/ProjectActivity' } }
+            conclusion: { $ref: '#/components/schemas/ProjectRichText' }
+    ProjectSummary:
+      allOf:
+        - $ref: '#/components/schemas/ProjectCreate'
+        - type: object
+          required: [id, classId, status, teachers, version]
+          properties:
+            id: { type: string, format: uuid }
+            classId: { type: string, format: uuid }
+            status: { type: string, enum: [DRAFT, FINALIZED] }
+            teachers: { type: array, items: { $ref: '#/components/schemas/PedTeacher' } }
+            version: { type: integer, format: int64 }
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/ProjectSummary'
+        - type: object
+          required: [className, archived, ageRange, generalObjective, specificObjectives, activities, conclusion, createdAt, updatedAt]
+          properties:
+            className: { type: string }
+            archived: { type: boolean }
+            ageRange: { type: string, maxLength: 200 }
+            generalObjective: { $ref: '#/components/schemas/ProjectRichText' }
+            specificObjectives: { type: array, maxItems: 100, items: { type: string, maxLength: 2000 } }
+            activities: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/ProjectActivity' } }
+            conclusion: { $ref: '#/components/schemas/ProjectRichText' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
     Role:
       type: string
       enum: [REQUESTER, AGENT, MANAGER, ADMIN]
@@ -727,7 +799,7 @@ components:
         version: { type: integer, format: int64, minimum: 0, description: Obrigatória na atualização. }
         retainedPhotoIds:
           type: array
-          maxItems: 20
+          maxItems: 50
           uniqueItems: true
           items: { type: string, format: uuid }
           description: Fotos existentes a manter; ordem original preservada. Vazio na criação.
@@ -775,6 +847,146 @@ components:
         totalElements: { type: integer, format: int64 }
         attachmentLimitMb: { type: integer }
 paths:
+  /pedagogical/classes/{id}/projects:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      summary: Listar projetos da turma
+      description: ADMIN/MANAGER ou professora ativa atualmente alocada. Período por interseção, incluindo meses intermediários; mês exige ano. Ordem por início e criação decrescentes, com desempate pelo ID.
+      parameters:
+        - { name: year, in: query, schema: { type: integer, minimum: 1900, maximum: 9998 } }
+        - { name: month, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: status, in: query, schema: { type: string, enum: [DRAFT, FINALIZED] } }
+        - { name: teacherId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Projetos autorizados
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/ProjectSummary' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      summary: Criar projeto em rascunho
+      description: Turma ativa; título não vazio e período entre 1900 e 9998. Permite vários projetos no mesmo período.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectCreate' }
+      responses:
+        '201':
+          description: Projeto criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400': { description: Campos inválidos. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /pedagogical/projects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    delete:
+      summary: Excluir projeto
+      description: Exclusão definitiva por ADMIN ou MANAGER ativos, em turma ativa. Aceita rascunhos e finalizados, exige a versão atual e audita sem conteúdo pedagógico.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - name: version
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: Registro excluído. }
+        '400': { description: Versão ausente ou inválida. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    get:
+      summary: Consultar projeto autorizado
+      responses:
+        '200':
+          description: Projeto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Projeto não encontrado. }
+    put:
+      summary: Salvar rascunho do projeto
+      description: Exige turma ativa, DRAFT e versão atual. Datas de atividades históricas devem pertencer ao período; desenvolvimento livre dispensa data e título. Linhas vazias dos objetivos são removidas ao salvar. Responsáveis históricas podem ser mantidas; novas exigem alocação e conta ativa. Seções incompletas são aceitas no rascunho.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectInput' }
+      responses:
+        '200':
+          description: Projeto salvo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400': { description: Campos inválidos. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Projeto não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /pedagogical/projects/{id}/finalize:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      summary: Finalizar projeto completo
+      description: Exige turma ativa, DRAFT, versão atual, faixa etária, responsável, objetivo geral, objetivos específicos, desenvolvimento e conclusão. Atividades históricas datadas também exigem título. Mesmas permissões da edição.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Projeto finalizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400': { description: Versão obrigatória. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Projeto não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /pedagogical/projects/{id}/reopen:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      summary: Reabrir projeto finalizado
+      description: Exige turma ativa, FINALIZED e versão atual. Mesmas permissões da edição.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Projeto reaberto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400': { description: Versão obrigatória. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Projeto não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /public/settings:
     get:
       security: []
@@ -1777,6 +1989,22 @@ paths:
   /pedagogical/plans/{id}:
     parameters:
     - $ref: '#/components/parameters/Id'
+    delete:
+      summary: Excluir planejamento
+      description: Exclusão definitiva por ADMIN ou MANAGER ativos, em turma ativa. Aceita rascunhos e finalizados, exige a versão atual e audita sem conteúdo pedagógico.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - name: version
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: Registro excluído. }
+        '400': { description: Versão ausente ou inválida. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
     get:
       summary: Consultar planejamento autorizado
       responses:

@@ -43,6 +43,9 @@ spring:
         max-page-size: 200
 
 server:
+  tomcat:
+    # 50 photos plus the JSON metadata part.
+    max-part-count: 51
   port: ${APP_PORT:8080}
   forward-headers-strategy: framework
   servlet:
