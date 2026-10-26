@@ -1,20 +1,23 @@
+import { usePedagogicalScope } from "../hooks/usePedagogicalScope";
 import { useEffect, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Printer, Save } from "lucide-react";
 import { DeletePedagogicalDocument } from "../components/DeletePedagogicalDocument";
-import { deletePlan } from "../api/pedagogical";
+
 import { Button } from "../components/Button";
 import { usePublicSettings } from "../app/PublicSettingsContext";
-import { getPlan, getClass, savePlan, transitionPlan, dateLabel } from "../api/pedagogical";
+import { dateLabel } from "../api/pedagogical";
 import type { Planning, PlanningInput, PlanningDay, SchoolClass } from "../api/pedagogical";
 import { ApiError } from "../api/http";
 import styles from "./PedagogicalPage.module.css";
 
 export default function PedagogicalPlanPage() {
+  const scope = usePedagogicalScope();
+  const { getClass, getPlan } = scope;
   const { planId } = useParams();
-  const plan = useQuery({ queryKey: ["pedagogical", "plan", planId], queryFn: () => getPlan(planId!) });
-  const classroom = useQuery({ queryKey: ["pedagogical", "class", plan.data?.classId], queryFn: () => getClass(plan.data!.classId), enabled: !!plan.data });
+  const plan = useQuery({ queryKey: ["pedagogical", scope.key, "plan", planId], queryFn: () => getPlan(planId!) });
+  const classroom = useQuery({ queryKey: ["pedagogical", scope.key, "class", plan.data?.classId], queryFn: () => getClass(plan.data!.classId), enabled: !!plan.data });
   if (plan.error) return <p role="alert">{plan.error.message}</p>;
   if (classroom.error) return <p role="alert">{classroom.error.message}</p>;
   if (!plan.data || !classroom.data) return <p role="status">Carregando planejamento…</p>;
@@ -26,6 +29,8 @@ function inputOf(p: Planning): PlanningInput {
 }
 
 function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolClass }) {
+  const scope = usePedagogicalScope();
+  const { deletePlan, getPlan, savePlan, transitionPlan } = scope;
   const settings = usePublicSettings();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -33,17 +38,18 @@ function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolCl
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(() => inputOf(initial));
   const [preview, setPreview] = useState(false);
+  const showPreview = preview || (!classroom.canEdit && !classroom.archived);
   const [conflict, setConflict] = useState<Planning | null>(null);
   const [message, setMessage] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(inputOf(saved));
   const blocker = useBlocker(dirty && !deleted);
   useEffect(() => {
     if (!deleted) return;
-    void client.invalidateQueries({ queryKey: ["pedagogical", "plans"] });
-    void client.invalidateQueries({ queryKey: ["pedagogical", "plan", saved.id], refetchType: "none" });
-    void navigate(`/pedagogico/turmas/${saved.classId}`, { replace: true });
-  }, [deleted, client, navigate, saved.classId, saved.id]);
-  const locked = saved.status === "FINALIZED" || classroom.archived;
+    void client.invalidateQueries({ queryKey: ["pedagogical", scope.key, "plans"] });
+    void client.invalidateQueries({ queryKey: ["pedagogical", scope.key, "plan", saved.id], refetchType: "none" });
+    void navigate(scope.classBase(saved.classId), { replace: true });
+  }, [deleted, client, navigate, saved.classId, saved.id, scope.key]);
+  const locked = saved.status === "FINALIZED" || !classroom.canEdit;
   useEffect(() => {
     if (!dirty || deleted) return;
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -52,8 +58,8 @@ function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolCl
   }, [dirty, deleted]);
   const accept = (p: Planning) => {
     setSaved(p); setDraft(inputOf(p)); setConflict(null);
-    client.setQueryData(["pedagogical", "plan", p.id], p);
-    client.invalidateQueries({ queryKey: ["pedagogical", "plans"] });
+    client.setQueryData(["pedagogical", scope.key, "plan", p.id], p);
+    client.invalidateQueries({ queryKey: ["pedagogical", scope.key, "plans"] });
   };
   const mutation = useMutation({
     mutationFn: async (action: "save" | "finalize" | "reopen") => {
@@ -78,16 +84,17 @@ function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolCl
   const displayPlan: Planning = { ...saved, theme: draft.theme, days: draft.days, teachers: options.filter(t => draft.teacherIds.includes(t.id)) };
   return <section className={styles.page}>
     <div className={styles.screenOnly}>
-      <nav className={styles.breadcrumb} aria-label="Diretórios"><Link to="/pedagogico">Turmas</Link><span>/</span><Link to={"/pedagogico/turmas/" + saved.classId}>{classroom.name}</Link><span>/</span><span>{dateLabel(saved.weekStart)} a {dateLabel(saved.weekEnd)}</span></nav>
+      <nav className={styles.breadcrumb} aria-label="Diretórios"><Link to="/pedagogico">Turmas</Link><span>/</span><Link to={scope.classBase(saved.classId)}>{classroom.name}</Link><span>/</span><span>{dateLabel(saved.weekStart)} a {dateLabel(saved.weekEnd)}</span></nav>
       <header className={styles.heading}><div><h2>Planejamento Pedagógico</h2><p>{classroom.name} · {dateLabel(saved.weekStart)} a {dateLabel(saved.weekEnd)}</p></div><span className={styles.status}>{saved.status === "DRAFT" ? "Rascunho" : "Finalizado"}</span></header>
       {classroom.archived && <p>Turma arquivada. Disponível somente para consulta e impressão.</p>}
+      {!classroom.archived && !classroom.canEdit && <p>Turma compartilhada. Disponível somente para consulta e impressão.</p>}
       {blocker.state === "blocked" && <div className={styles.panel} role="alert"><p>Existem alterações não salvas. Deseja sair e descartá-las?</p><Button onClick={() => blocker.reset()}>Continuar editando</Button><Button variant="danger" onClick={() => blocker.proceed()}>Descartar e sair</Button></div>}
       <div className={styles.toolbar}>
         {!locked && <><Button icon={<Save />} variant="primary" disabled={mutation.isPending || !!conflict} onClick={() => mutation.mutate("save")}>Salvar rascunho</Button><Button disabled={mutation.isPending || !!conflict} onClick={() => mutation.mutate("finalize")}>Finalizar</Button></>}
-        {saved.status === "FINALIZED" && !classroom.archived && <Button disabled={mutation.isPending} onClick={() => mutation.mutate("reopen")}>Reabrir</Button>}
-        <Button onClick={() => setPreview(!preview)}>{preview ? "Voltar ao formulário" : "Visualizar / Imprimir"}</Button>
-        {preview && <Button icon={<Printer />} onClick={() => window.print()}>Imprimir / Salvar PDF</Button>}
-        {!classroom.archived && <DeletePedagogicalDocument kind="planejamento" label={saved.theme || `${dateLabel(saved.weekStart)} a ${dateLabel(saved.weekEnd)}`} dirty={dirty}
+        {saved.status === "FINALIZED" && classroom.canEdit && <Button disabled={mutation.isPending} onClick={() => mutation.mutate("reopen")}>Reabrir</Button>}
+        {(classroom.canEdit || classroom.archived) && <Button onClick={() => setPreview(!preview)}>{preview ? "Voltar ao formulário" : "Visualizar / Imprimir"}</Button>}
+        {showPreview && <Button icon={<Printer />} onClick={() => window.print()}>Imprimir / Salvar PDF</Button>}
+        {classroom.canManage && classroom.canEdit && <DeletePedagogicalDocument kind="planejamento" label={saved.theme || `${dateLabel(saved.weekStart)} a ${dateLabel(saved.weekEnd)}`} dirty={dirty}
           disabled={mutation.isPending || !!conflict} remove={() => deletePlan(saved.id, saved.version)}
           onDeleted={() => setDeleted(true)} onConflict={async () => {
             try { setConflict(await getPlan(saved.id)); } catch { /* Keep local input and the deletion error visible. */ }
@@ -102,7 +109,7 @@ function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolCl
         <Button onClick={() => { setSaved(conflict); setDraft(d => ({ ...d, version: conflict.version })); setConflict(null); }}>Manter meu texto para revisão</Button>
         <Button onClick={() => accept(conflict)}>Carregar versão salva e descartar meu texto</Button>
       </div>}
-      {!preview && <div className={styles.panel}>
+      {!showPreview && <div className={styles.panel}>
         <fieldset disabled={locked || mutation.isPending}><legend>Dados da semana</legend>
           <label>Tema / Projeto / Experiência da semana<textarea aria-label="Tema / Projeto / Experiência da semana" maxLength={1000} value={draft.theme} onChange={e => setDraft({ ...draft, theme: e.target.value })} /></label>
           <fieldset><legend>Professoras responsáveis</legend>{options.map(t => <label className={styles.check} key={t.id}><input type="checkbox" checked={draft.teacherIds.includes(t.id)} onChange={e => setDraft({ ...draft, teacherIds: e.target.checked ? [...draft.teacherIds, t.id] : draft.teacherIds.filter(id => id !== t.id) })} />{t.displayName}{!classroom.teachers.some(current => current.id === t.id) && " (registro histórico)"}</label>)}</fieldset>
@@ -114,8 +121,9 @@ function Editor({ initial, classroom }: { initial: Planning; classroom: SchoolCl
         </fieldset>
       </div>}
     </div>
-    <div className={preview ? styles.preview : styles.printOnly}>
-      {preview && dirty && <p className={styles.screenOnly}>Prévia com alterações locais ainda não salvas.</p>}
+    <div className={showPreview ? styles.preview : styles.printOnly} tabIndex={showPreview ? 0 : undefined}
+      role={showPreview ? "region" : undefined} aria-label={showPreview ? "Prévia do planejamento" : undefined}>
+      {showPreview && dirty && <p className={styles.screenOnly}>Prévia com alterações locais ainda não salvas.</p>}
       <PlanDocument plan={displayPlan} unsaved={dirty} institution={settings?.institutionName} logo={settings?.schoolLogoUrl} />
     </div>
   </section>;

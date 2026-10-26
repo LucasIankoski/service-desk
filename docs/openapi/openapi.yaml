@@ -26,6 +26,22 @@ components:
                 description: JPG/PNG/WebP. Limite por foto configurado; até 100 MiB por envio e 60 megapixels por imagem. Total final entre 1 e 50 fotos.
           encoding:
             metadata: { contentType: application/json }
+    GeneralRecordUpload:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [metadata]
+            properties:
+              metadata: { $ref: '#/components/schemas/GeneralRecordInput' }
+              files:
+                type: array
+                maxItems: 100
+                items: { type: string, format: binary }
+                description: JPG/PNG/WebP. Limite por foto configurado; até 100 MiB por envio e 60 megapixels por imagem. Total final entre 1 e 100 fotos.
+          encoding:
+            metadata: { contentType: application/json }
   securitySchemes:
     sessionCookie:
       type: apiKey
@@ -76,6 +92,179 @@ components:
         application/problem+json:
           schema: { $ref: "#/components/schemas/ProblemDetail" }
   schemas:
+    AgendaCollaborator:
+      type: object
+      required:
+      - id
+      - displayName
+      - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        active:
+          type: boolean
+    AgendaCommitment:
+      allOf:
+      - $ref: '#/components/schemas/AgendaOccurrence'
+      - type: object
+        required:
+        - collaboratorId
+        - collaboratorName
+        properties:
+          collaboratorId:
+            type:
+            - string
+            - 'null'
+            format: uuid
+          collaboratorName:
+            type:
+            - string
+            - 'null'
+            description: Nome atual do colaborador. Null somente em compromissos antigos
+              sem vínculo.
+    AgendaCommitmentInput:
+      allOf:
+      - $ref: '#/components/schemas/AgendaOccurrenceInput'
+      - type: object
+        required:
+        - collaboratorId
+        properties:
+          collaboratorId:
+            type: string
+            format: uuid
+    AgendaCommitmentUpdate:
+      allOf:
+      - $ref: '#/components/schemas/AgendaOccurrenceUpdate'
+      - type: object
+        required:
+        - collaboratorId
+        properties:
+          collaboratorId:
+            type: string
+            format: uuid
+    AeeStudentInput:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        archived: &id002
+          type: boolean
+        version: &id003
+          type: integer
+          format: int64
+    AeeStudent:
+      type: object
+      required:
+      - id
+      - aeeClassId
+      - classId
+      - name
+      - archived
+      - version
+      - canManage
+      properties:
+        id: &id001
+          type: string
+          format: uuid
+        aeeClassId: *id001
+        classId: *id001
+        name:
+          type: string
+        archived: *id002
+        version: *id003
+        canManage: *id002
+    AeeClassroom:
+      type: object
+      required:
+      - id
+      - name
+      - archived
+      - canView
+      - canCreateStudents
+      properties:
+        id: *id001
+        name:
+          type: string
+        archived: *id002
+        canView: *id002
+        canCreateStudents: *id002
+    AeeContext:
+      type: object
+      required:
+      - aeeId
+      - aeeName
+      - classId
+      - className
+      - student
+      - archived
+      - canEdit
+      - canManage
+      - teachers
+      properties:
+        aeeId: *id001
+        aeeName:
+          type: string
+        classId: *id001
+        className:
+          type: string
+        student:
+          $ref: '#/components/schemas/AeeStudent'
+        archived: *id002
+        canEdit: *id002
+        canManage: *id002
+        teachers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedTeacher'
+    AeeDocument:
+      type: object
+      required:
+      - id
+      - filename
+      - size
+      - authorId
+      - authorName
+      - createdAt
+      - version
+      - canDelete
+      properties:
+        id: *id001
+        filename:
+          type: string
+        size:
+          type: integer
+          format: int64
+        authorId: *id001
+        authorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        version: *id003
+        canDelete: *id002
+    AeeDocumentPage:
+      type: object
+      required:
+      - items
+      - canUpload
+      - attachmentLimitMb
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AeeDocument'
+        canUpload: *id002
+        attachmentLimitMb:
+          type: integer
+          minimum: 1
+          maximum: 25
     ProjectRun:
       type: object
       required: [text, bold]
@@ -139,6 +328,7 @@ components:
         - type: object
           required: [className, archived, ageRange, generalObjective, specificObjectives, activities, conclusion, createdAt, updatedAt]
           properties:
+            studentId: { type: [string, "null"], format: uuid }
             className: { type: string }
             archived: { type: boolean }
             ageRange: { type: string, maxLength: 200 }
@@ -539,6 +729,10 @@ components:
           format: uuid
         displayName:
           type: string
+    PedClassContentVisibility:
+      type: string
+      enum: [ALLOCATED_ONLY, PEDAGOGICAL_READ_ONLY]
+      description: ALLOCATED_ONLY limita a consulta às alocadas e à administração. PEDAGOGICAL_READ_ONLY permite consulta de todo o histórico, rascunhos e fotos a usuários ativos com acesso ao Pedagógico, sem conceder escrita ou gestão.
     PedClass:
       type: object
       required:
@@ -547,7 +741,13 @@ components:
       - archived
       - teachers
       - version
+      - contentVisibility
+      - canCreate
+      - canEdit
+      - canManage
+      - aee
       properties:
+        aee: { type: boolean, description: "Atendimento Educacional Especial. Padrão false na criação; omissão preserva na edição. Vínculos de alunos impedem alteração do tipo." }
         id:
           type: string
           format: uuid
@@ -562,12 +762,27 @@ components:
         version:
           type: integer
           format: int64
+        contentVisibility:
+          $ref: '#/components/schemas/PedClassContentVisibility'
+        canCreate:
+          type: boolean
+          readOnly: true
+          description: Permite criar conteúdo na turma ativa. Não altera as regras específicas de cada documento.
+        canEdit:
+          type: boolean
+          readOnly: true
+          description: Permite alterar conteúdo na turma ativa, respeitando status e autoria. Somente administração ou REQUESTER ativo atualmente alocado.
+        canManage:
+          type: boolean
+          readOnly: true
+          description: ADMIN ou MANAGER ativo, inclusive para reativar turma arquivada. Não concede escrita em turma arquivada.
     PedClassInput:
       type: object
       required:
       - name
       - teacherIds
       properties:
+        aee: { type: [boolean, "null"], description: "Atendimento Educacional Especial. Padrão false na criação; omissão preserva na edição. Vínculos de alunos impedem alteração do tipo." }
         name:
           type: string
           minLength: 1
@@ -583,6 +798,11 @@ components:
         version:
           type: integer
           format: int64
+        contentVisibility:
+          oneOf:
+          - $ref: '#/components/schemas/PedClassContentVisibility'
+          - type: 'null'
+          description: Opcional para compatibilidade. Quando omitido ou null, usa ALLOCATED_ONLY na criação e preserva a visibilidade atual na atualização.
     PedDayInput:
       type: object
       required: []
@@ -846,6 +1066,61 @@ components:
         totalPages: { type: integer }
         totalElements: { type: integer, format: int64 }
         attachmentLimitMb: { type: integer }
+    GeneralRecordInput:
+      type: object
+      required: [title, activityDate, retainedPhotoIds]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        activityDate: { type: string, format: date }
+        version: { type: integer, format: int64, minimum: 0, description: Obrigatória na atualização. }
+        retainedPhotoIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: Fotos existentes a manter; ordem original preservada. Vazio na criação.
+    GeneralRecord:
+      type: object
+      required: [id, title, activityDate, authorId, authorName, photos, version, canEdit, createdAt, updatedAt, attachmentLimitMb, maxPhotos]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        activityDate: { type: string, format: date }
+        authorId: { type: string, format: uuid }
+        authorName: { type: string }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityPhoto' }
+        version: { type: integer, format: int64 }
+        canEdit: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        attachmentLimitMb: { type: integer }
+        maxPhotos: { type: integer, enum: [100] }
+    GeneralRecordSummary:
+      type: object
+      required: [id, title, activityDate, authorName, photoCount, cover, version]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        activityDate: { type: string, format: date }
+        authorName: { type: string }
+        photoCount: { type: integer }
+        cover: { $ref: '#/components/schemas/ActivityPhoto' }
+        version: { type: integer, format: int64 }
+    GeneralRecordPage:
+      type: object
+      required: [items, page, totalPages, totalElements, attachmentLimitMb, maxPhotos, canCreate]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/GeneralRecordSummary' }
+        page: { type: integer }
+        totalPages: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        attachmentLimitMb: { type: integer }
+        maxPhotos: { type: integer, enum: [100] }
+        canCreate: { type: boolean, readOnly: true }
 paths:
   /pedagogical/classes/{id}/projects:
     parameters:
@@ -1250,6 +1525,114 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { description: Ocorrência não encontrada. }
         "409": { $ref: "#/components/responses/Conflict" }
+  /agenda/commitments:
+    get:
+      summary: Lista compromissos diárias compartilhadas; exige MANAGER.
+      parameters:
+      - name: start
+        in: query
+        required: true
+        description: Data inicial inclusiva.
+        schema:
+          type: string
+          format: date
+      - name: end
+        in: query
+        required: true
+        description: Data final exclusiva.
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: Compromissos ordenadas por data e criação.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgendaCommitment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    post:
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      summary: Cria compromisso sem depender de uma tarefa; exige MANAGER.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendaCommitmentInput'
+      responses:
+        '201':
+          description: Compromisso criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaCommitment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /agenda/commitments/{id}:
+    patch:
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      summary: Edita compromisso com controle de versão; exige MANAGER.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendaCommitmentUpdate'
+      responses:
+        '200':
+          description: Compromisso atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaCommitment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Compromisso não encontrado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      summary: Exclui compromisso com controle de versão; exige MANAGER.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '204':
+          description: Compromisso excluída.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Compromisso não encontrado.
+        '409':
+          $ref: '#/components/responses/Conflict'
   /agenda/items:
     get:
       summary: Lista itens sobrepostos ao período, filtrados pelo perfil no banco.
@@ -2267,3 +2650,1354 @@ paths:
               schema: { type: string, format: binary }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { description: Registro ou foto não encontrado. }
+
+  /records:
+    get:
+      summary: Listar álbuns gerais de eventos (24 por página; data da proposta decrescente)
+      parameters:
+        - { name: year, in: query, schema: { type: integer, minimum: 1900, maximum: 9998 } }
+        - { name: month, in: query, description: Exige year., schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, maximum: 100000, default: 0 } }
+      responses:
+        '200':
+          description: Álbuns visíveis à pessoa autenticada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GeneralRecordPage' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      summary: Criar registro com título, data e fotos
+      description: ADMIN, MANAGER ou REQUESTER ativo; sem vínculo com turma ou Agenda. Publicação atômica ao salvar.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/GeneralRecordUpload'
+      responses:
+        '201':
+          description: Registro criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GeneralRecord' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413': { description: Limite individual configurado ou total de 100 MiB excedido. }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /records/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      summary: Consultar álbum geral autorizado
+      description: ADMIN, MANAGER ou REQUESTER ativo. IDs de registros por turma retornam 404, inclusive nas fotos e mutações.
+      responses:
+        '200':
+          description: Registro
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GeneralRecord' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro não encontrado. }
+    put:
+      summary: Atualizar registro e seleção de fotos
+      description: Exige versão atual e autoria ou ADMIN/MANAGER ativo. Limite final de 100 fotos, incluindo as mantidas e novas.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/GeneralRecordUpload'
+      responses:
+        '200':
+          description: Registro atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GeneralRecord' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro geral não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413': { description: Limite de envio excedido. }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      summary: Excluir registro e agendar limpeza de suas fotos
+      description: Autora ou ADMIN/MANAGER ativo; exige versão atual.
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      parameters:
+        - { name: version, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '204': { description: Excluído. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro geral não encontrado. }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /records/{id}/photos/{photoId}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Foto original com acesso atual ao módulo Registros
+      responses:
+        '200':
+          description: Imagem privada. Cache-Control no-store. Revogação também se aplica à URL direta.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro ou foto não encontrado. }
+  /records/{id}/photos/{photoId}/thumbnail:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Miniatura JPEG com acesso atual ao módulo Registros
+      responses:
+        '200':
+          description: Imagem privada. Cache-Control no-store. Revogação também se aplica à URL direta.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Registro ou foto não encontrado. }
+
+  /pedagogical/aee/{aeeId}/classes:
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Turmas regulares e permissões no AEE; não inclui alunos em cartões restritos
+      parameters:
+      - name: archived
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '200':
+          description: Turmas regulares
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AeeClassroom'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students:
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Consultar alunos e homônimos no contexto AEE e turma regular
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AeeStudent'
+    post:
+      summary: Cadastrar aluno independente; nome completo obrigatório
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AeeStudent'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AeeStudentInput'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}:
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Contexto do aluno, professoras e permissões atuais calculadas
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AeeContext'
+    put:
+      summary: Renomear, arquivar ou reativar aluno; exige versão atual
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AeeStudent'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AeeStudentInput'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/plans:
+    get:
+      summary: Semanas que intersectam o período; mês exige ano
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PedSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      parameters:
+      - in: query
+        name: year
+        schema:
+          type: integer
+          minimum: 1900
+          maximum: 9998
+      - in: query
+        name: month
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 12
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - FINALIZED
+      - in: query
+        name: teacherId
+        schema:
+          type: string
+          format: uuid
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    post:
+      summary: Criar semana compartilhada; weekStart deve ser segunda-feira
+      responses:
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - weekStart
+              properties:
+                weekStart:
+                  type: string
+                  format: date
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/plans/{id}:
+    delete:
+      summary: Excluir planejamento
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Exclusão
+        definitiva por ADMIN ou MANAGER ativos, em turma ativa. Aceita rascunhos e finalizados,
+        exige a versão atual e audita sem conteúdo pedagógico.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      parameters:
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '204':
+          description: Registro excluído.
+        '400':
+          description: Versão ausente ou inválida.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    get:
+      summary: Consultar planejamento autorizado
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    put:
+      summary: Salvar rascunho; cinco dias ordenados de segunda a sexta
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedEdit'
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/plans/{id}/finalize:
+    post:
+      summary: Finalizar planejamento
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedVersion'
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/plans/{id}/reopen:
+    post:
+      summary: Reabrir planejamento
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedPlan'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedVersion'
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/projects:
+    get:
+      summary: Listar projetos da turma
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. ADMIN/MANAGER
+        ou professora ativa atualmente alocada. Período por interseção, incluindo meses
+        intermediários; mês exige ano. Ordem por início e criação decrescentes, com
+        desempate pelo ID.'
+      parameters:
+      - name: year
+        in: query
+        schema:
+          type: integer
+          minimum: 1900
+          maximum: 9998
+      - name: month
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 12
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - FINALIZED
+      - name: teacherId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Projetos autorizados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+    post:
+      summary: Criar projeto em rascunho
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Turma ativa;
+        título não vazio e período entre 1900 e 9998. Permite vários projetos no mesmo
+        período.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      responses:
+        '201':
+          description: Projeto criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Campos inválidos.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/projects/{id}:
+    delete:
+      summary: Excluir projeto
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Exclusão
+        definitiva por ADMIN ou MANAGER ativos, em turma ativa. Aceita rascunhos e finalizados,
+        exige a versão atual e audita sem conteúdo pedagógico.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      parameters:
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '204':
+          description: Registro excluído.
+        '400':
+          description: Versão ausente ou inválida.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    get:
+      summary: Consultar projeto autorizado
+      responses:
+        '200':
+          description: Projeto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    put:
+      summary: Salvar rascunho do projeto
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Exige turma
+        ativa, DRAFT e versão atual. Datas de atividades históricas devem pertencer
+        ao período; desenvolvimento livre dispensa data e título. Linhas vazias dos
+        objetivos são removidas ao salvar. Responsáveis históricas podem ser mantidas;
+        novas exigem alocação e conta ativa. Seções incompletas são aceitas no rascunho.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '200':
+          description: Projeto salvo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Campos inválidos.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/projects/{id}/finalize:
+    post:
+      summary: Finalizar projeto completo
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Exige turma
+        ativa, DRAFT, versão atual, faixa etária, responsável, objetivo geral, objetivos
+        específicos, desenvolvimento e conclusão. Atividades históricas datadas também
+        exigem título. Mesmas permissões da edição.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - version
+              properties:
+                version:
+                  type: integer
+                  format: int64
+      responses:
+        '200':
+          description: Projeto finalizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Versão obrigatória.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/projects/{id}/reopen:
+    post:
+      summary: Reabrir projeto finalizado
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Exige turma
+        ativa, FINALIZED e versão atual. Mesmas permissões da edição.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - version
+              properties:
+                version:
+                  type: integer
+                  format: int64
+      responses:
+        '200':
+          description: Projeto reaberto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Versão obrigatória.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/records:
+    get:
+      summary: Listar álbuns da turma (24 por página; data da proposta decrescente)
+      parameters:
+      - name: year
+        in: query
+        schema:
+          type: integer
+          minimum: 1900
+          maximum: 9998
+      - name: month
+        in: query
+        description: Exige year.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 12
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 100000
+          default: 0
+      responses:
+        '200':
+          description: Álbuns visíveis à pessoa autenticada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityRecordPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    post:
+      summary: Criar registro com título, data e fotos
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. ADMIN/MANAGER
+        ou solicitante atualmente alocada. Turma ativa. Publicação atômica ao salvar.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        $ref: '#/components/requestBodies/ActivityRecordUpload'
+      responses:
+        '201':
+          description: Registro criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityRecord'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: Limite individual configurado ou total de 100 MiB excedido.
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/records/{id}:
+    get:
+      summary: Consultar álbum autorizado
+      responses:
+        '200':
+          description: Registro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityRecord'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    put:
+      summary: Atualizar registro e seleção de fotos
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. Exige versão
+        atual e autoria com alocação vigente ou perfil administrativo. Turma ativa.'
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        $ref: '#/components/requestBodies/ActivityRecordUpload'
+      responses:
+        '200':
+          description: Registro atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityRecord'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          description: Limite de envio excedido.
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+    delete:
+      summary: Excluir registro e agendar limpeza de suas fotos
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      parameters:
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '204':
+          description: Excluído.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/records/{id}/photos/{photoId}:
+    get:
+      summary: Foto original com autorização atual da turma
+      responses:
+        '200':
+          description: Imagem privada. Cache-Control no-store. Revogação também se aplica
+            à URL direta.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+    - name: photoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/records/{id}/photos/{photoId}/thumbnail:
+    get:
+      summary: Miniatura JPEG com autorização atual da turma
+      responses:
+        '200':
+          description: Imagem privada. Cache-Control no-store. Revogação também se aplica
+            à URL direta.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+      description: 'Contexto individual AEE → turma regular → aluno. Revalida vínculos,
+        conta ativa, alocações e visibilidade da AEE. Arquivamento de qualquer nível
+        bloqueia escrita. Planos e projetos são compartilhados entre editoras; exclusão
+        administrativa. Registros: autora ou administração, de 1 a 50 fotos. '
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - $ref: '#/components/parameters/Id'
+    - name: photoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/documents:
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Listar PDFs privados por aluno com autoria, data e permissões
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AeeDocumentPage'
+    post:
+      summary: Anexar um PDF por operação; extensão, assinatura, MIME e limite configurado
+        (1–25 MiB)
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AeeDocument'
+        '413':
+          description: Arquivo excede o limite configurado.
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+  /pedagogical/aee/{aeeId}/classes/{classId}/students/{studentId}/documents/{id}:
+    parameters:
+    - name: aeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: classId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Leitura autenticada do PDF; revalida o aluno e retorna Cache-Control
+        no-store
+      parameters:
+      - name: download
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '200':
+          description: PDF privado; inline ou attachment quando download=true
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+    delete:
+      summary: Excluir PDF pela autora ou ADMIN/MANAGER; requer contexto ativo e versão
+        atual
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+      parameters:
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ID não pertence ao contexto AEE, turma, aluno e documento informado.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '204':
+          description: Excluído; limpeza durável agendada.
+
+  /agenda/commitments/collaborators:
+    get:
+      summary: Usuários cadastrados de todos os perfis, inclusive inativos identificados;
+        somente MANAGER ativo. Exclui contas anonimizadas.
+      responses:
+        '200':
+          description: Identificadores, nomes e estado ativo, sem e-mails ou outros
+            dados da conta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgendaCollaborator'
+        '403':
+          $ref: '#/components/responses/Forbidden'

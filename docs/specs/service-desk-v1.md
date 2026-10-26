@@ -1,5 +1,8 @@
 # Especificação — Central de Serviços v1
 
+Complemento: [Registros gerais de eventos e Compromissos](event-records-daily-commitments.md).
+Complemento: [Atendimento Educacional Especial por turma e aluno](aee-students.md).
+
 ## Objetivo
 
 Permitir que colaboradores de uma única instituição abram solicitações, acompanhem a trilha de atendimento e colaborem com uma fila interna segura e responsiva.
@@ -69,8 +72,12 @@ Multi-tenancy, departamentos, catálogo, base de conhecimento, aprovações, SSO
 ## Pedagógico
 
 - ADMIN e MANAGER administram turmas e planejamentos; esta permissão de ADMIN é específica do Pedagógico.
-- REQUESTER representa a professora. Acesso depende da alocação atual e de conta ativa com esse perfil. Alocações não têm ano ou vencimento; remanejamentos revogam acesso ao histórico da turma anterior.
+- REQUESTER representa a professora. Escrita depende da alocação atual e de conta ativa com esse perfil. Alocações não têm ano ou vencimento; remanejamentos revogam a escrita e, nas turmas restritas, também a consulta ao histórico da turma anterior.
 - Turmas podem ter várias professoras e professoras podem integrar várias turmas. Arquivar mantém consulta/impressão e bloqueia alterações até reativar.
+- Visibilidade configurável por ADMIN/MANAGER na própria turma: `ALLOCATED_ONLY` (padrão, inclusive para turmas existentes) ou `PEDAGOGICAL_READ_ONLY`. A segunda opção compartilha todo o histórico, inclusive rascunhos e fotos, com usuários ativos que já acessam o Pedagógico (ADMIN, MANAGER e REQUESTER), independentemente de alocação. Não concede acesso a AGENT sem um desses perfis.
+- A listagem reúne turmas alocadas e compartilhadas, sem duplicação; administração continua vendo todas. A mesma regra protege URLs diretas de turmas, documentos, fotos e miniaturas. Revogar compartilhamento, alocação ou perfil tem efeito na próxima consulta à API.
+- A API de turmas retorna `contentVisibility`, `canCreate`, `canEdit` e `canManage` calculados para o usuário atual. Criar/alterar conteúdo exige turma ativa e administração ou REQUESTER atualmente alocado; a gestão da turma continua exclusiva de ADMIN/MANAGER. As regras específicas de status, autoria e exclusão dos documentos são preservadas. Leitores recebem prévia de impressão e não veem ações de escrita.
+- `contentVisibility` omitido ou nulo cria turma restrita e preserva o valor existente na atualização, para compatibilidade. A migration 012 adiciona o campo sem ampliar o acesso às turmas existentes. Compartilhamento reutiliza Planejamentos, Projetos e Registros; não adiciona upload genérico de arquivos.
 - Diretórios virtuais: Turma / Ano / Mês / Semana. A semana é segunda–sexta; um único planejamento por turma e segunda-feira. Semanas entre meses/anos aparecem nos dois períodos sem duplicação.
 - Estados DRAFT e FINALIZED. Rascunhos aceitam dados parciais; finalização exige tema, responsável e os quatro campos de cada dia, ou Sem aula com motivo.
 - Qualquer professora atualmente alocada, MANAGER ou ADMIN pode finalizar/reabrir. Não há aprovação, anexos ou edição em tempo real. ADMIN e MANAGER ativos podem excluir rascunhos e finalizados de turmas ativas, com confirmação e versão atual.
@@ -99,7 +106,7 @@ Multi-tenancy, departamentos, catálogo, base de conhecimento, aprovações, SSO
 
 - A opção Registros substitui Atividade Pedagógica e apresenta álbuns por turma/data, independentes dos planejamentos.
 - Cadastro publicado ao salvar: título de até 200 caracteres, data civil entre 1900 e 9998, uma a cinquenta fotos. A primeira foto é a capa. A ordem de envio é preservada.
-- ADMIN/MANAGER gerenciam todos os álbuns. Solicitantes ativos alocados consultam todos da turma; somente a autora atualmente alocada pode editar/excluir. Turmas arquivadas permitem apenas consulta. Autoria histórica é preservada.
+- ADMIN/MANAGER gerenciam todos os álbuns. Solicitantes ativos alocados consultam todos da turma; usuários ativos do Pedagógico também consultam álbuns de turmas compartilhadas. Somente a autora atualmente alocada e a administração podem editar/excluir. Ao perder a alocação, a autora de um álbum compartilhado mantém somente consulta. Turmas arquivadas permitem apenas consulta. Autoria histórica é preservada.
 - Remoção de alocação, desativação ou perda de perfil revoga também o acesso às URLs dos originais e miniaturas. Respostas de imagens usam no-store.
 - JPG, PNG e WebP exigem assinatura e decodificação válidas, até 60 megapixels. Limite individual reutiliza as configurações existentes; cada envio permite até 100 MiB. Miniaturas JPEG de até 640 pixels respeitam orientação EXIF; originais são preservados.
 - Listagem paginada em 24 itens, data da proposta decrescente e desempate por criação/UUID. Filtros por ano e mês; mês exige ano.

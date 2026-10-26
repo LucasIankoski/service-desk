@@ -8,10 +8,13 @@ import { AppShell } from "../components/AppShell";
 import { LoadingScreen } from "../components/LoadingScreen";
 
 const ActivityRecordsPage = lazy(() => import("../pages/ActivityRecordsPage"));
+const GeneralRecordsPage = lazy(() => import("../pages/GeneralRecordsPage"));
 const PedagogicalPage = lazy(() => import("../pages/PedagogicalPage"));
 const PedagogicalPlanPage = lazy(() => import("../pages/PedagogicalPlanPage"));
 const ProjectsPage = lazy(() => import("../pages/ProjectsPage"));
 const ProjectPage = lazy(() => import("../pages/ProjectPage"));
+const AeePage = lazy(() => import("../pages/AeePage"));
+const StudentDocumentsPage = lazy(() => import("../pages/StudentDocumentsPage"));
 
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const TicketListPage = lazy(() => import("../pages/TicketListPage"));
@@ -42,8 +45,18 @@ const router = createBrowserRouter([
       { path: "tickets/:id", element: <TicketDetailPage /> },
       { path: "pedagogico", element: <PedagogicalPage /> },
       { path: "pedagogico/turmas/:classId", element: <PedagogicalPage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos", element: <AeePage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId", element: <AeePage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId/planejamentos/:planId", element: <PedagogicalPlanPage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId/projetos", element: <ProjectsPage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId/projetos/:projectId", element: <ProjectPage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId/registros", element: <ActivityRecordsPage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId/registros/:recordId", element: <ActivityRecordsPage /> },
+      { path: "pedagogico/turmas/:aeeId/turmas/:classId/alunos/:studentId/documentos", element: <StudentDocumentsPage /> },
       { path: "pedagogico/turmas/:classId/registros", element: <ActivityRecordsPage /> },
       { path: "pedagogico/registros/:recordId", element: <ActivityRecordsPage /> },
+      { path: "registros", element: <GeneralRecordsPage /> },
+      { path: "registros/:recordId", element: <GeneralRecordsPage /> },
       { path: "pedagogico/planejamentos/:planId", element: <PedagogicalPlanPage /> },
       { path: "pedagogico/turmas/:classId/projetos", element: <ProjectsPage /> },
       { path: "pedagogico/projetos/:projectId", element: <ProjectPage /> },

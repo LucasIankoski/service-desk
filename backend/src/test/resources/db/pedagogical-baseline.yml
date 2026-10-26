@@ -407,3 +407,9 @@ databaseChangeLog:
     file: db/changelog/changes/010-pedagogical-projects.yml
 - include:
     file: db/changelog/changes/011-project-free-development.yml
+- include:
+    file: db/changelog/changes/012-pedagogical-class-visibility.yml
+- include:
+    file: db/changelog/changes/013-general-records.yml
+- include:
+    file: db/changelog/changes/015-aee-students.yml

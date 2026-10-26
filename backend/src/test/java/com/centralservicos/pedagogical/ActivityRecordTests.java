@@ -45,9 +45,13 @@ class ActivityRecordTests {
         assertThatThrownBy(() -> records.list(c.id(), null, 9, 0, colleague)).isInstanceOf(DomainException.class);
         var photo = r.photos().getFirst();
         var original = records.image(r.id(), photo.id(), false, colleague);
-        assertThat(ImageIO.read(original.resource().getInputStream()).getWidth()).isEqualTo(800);
+        try (var stream = original.resource().getInputStream()) {
+            assertThat(ImageIO.read(stream).getWidth()).isEqualTo(800);
+        }
         var thumbnail = records.image(r.id(), photo.id(), true, colleague);
-        assertThat(ImageIO.read(thumbnail.resource().getInputStream()).getWidth()).isEqualTo(640);
+        try (var stream = thumbnail.resource().getInputStream()) {
+            assertThat(ImageIO.read(stream).getWidth()).isEqualTo(640);
+        }
         var edited = records.update(r.id(), input("Pintura", r.version(), List.of(photo.id())), List.of(), author);
         assertThat(edited.photos()).hasSize(1); assertThat(edited.version()).isGreaterThan(r.version());
         assertThatThrownBy(() -> records.update(r.id(), input("Antigo", r.version(), List.of(photo.id())), List.of(), author)).hasMessageContaining("mudou");
@@ -57,7 +61,7 @@ class ActivityRecordTests {
         assertThatThrownBy(() -> records.get(r.id(), author)).isInstanceOf(DomainException.class);
         // Database timestamp precision varies; make asynchronous cleanup deterministically due.
         var due = queue.findAll(); due.forEach(job -> job.eligibleAt = Instant.now().minusSeconds(2)); queue.saveAll(due);
-        cleanup.clean();
+        while (!queue.findTop100ByEligibleAtBeforeOrderByEligibleAtAsc(Instant.now()).isEmpty()) cleanup.clean();
         assertThat(original.resource().exists()).isFalse();
         assertThat(thumbnail.resource().exists()).isFalse();
     }

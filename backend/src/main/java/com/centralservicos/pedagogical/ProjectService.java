@@ -33,27 +33,32 @@ class ProjectService {
     private void version(PedagogicalProject p, Long expected) {
         if (!Objects.equals(p.rowVersion, expected)) throw DomainException.conflict("Este registro mudou. Seu texto foi preservado; consulte a versão atual antes de salvar novamente.");
     }
-    private PedagogicalProject required(UUID id) {
-        return projects.findById(id).orElseThrow(() -> DomainException.notFound("Projeto não encontrado."));
+    private PedagogicalProject required(UUID id, UUID studentId) {
+        return projects.findById(id).filter(p -> Objects.equals(p.studentId,studentId)).orElseThrow(() -> DomainException.notFound("Projeto não encontrado."));
     }
     @Transactional(readOnly=true)
-    public List<Summary> list(UUID classId, Integer year, Integer month, String status, UUID teacherId, AuthenticatedUser actor) {
-        access.classroom(classId, actor, false);
+    public List<Summary> list(UUID classId, Integer year, Integer month, String status, UUID teacherId, AuthenticatedUser actor) { return list(classId, year, month, status, teacherId, actor, null); }
+    @Transactional(readOnly=true)
+    public List<Summary> list(UUID classId, Integer year, Integer month, String status, UUID teacherId, AuthenticatedUser actor, UUID studentId) {
+        access.contentClass(classId, studentId, actor, false);
         if (year != null && (year < 1900 || year > 9998) || month != null && (year == null || month < 1 || month > 12))
             throw DomainException.unprocessable("Período inválido.");
         if (status != null && !Set.of("DRAFT", "FINALIZED").contains(status)) throw DomainException.unprocessable("Status inválido.");
         var start = year == null ? null : LocalDate.of(year, month == null ? 1 : month, 1);
         var end = start == null ? null : month == null ? start.plusYears(1) : start.plusMonths(1);
-        return projects.findByClassIdOrderByStartDateDescCreatedAtDescIdAsc(classId).stream()
+        return projects.findByClassIdAndStudentIdOrderByStartDateDescCreatedAtDescIdAsc(classId, studentId).stream()
+                .filter(p -> Objects.equals(p.studentId,studentId))
                 .filter(p -> start == null || !p.endDate.isBefore(start) && p.startDate.isBefore(end))
                 .filter(p -> status == null || status.equals(p.status))
                 .filter(p -> teacherId == null || p.teachers.stream().anyMatch(t -> t.teacherId.equals(teacherId)))
                 .map(p -> new Summary(p.id, p.classId, p.title, p.startDate, p.endDate, p.status, teachers(p), p.rowVersion)).toList();
     }
     @Transactional
-    public View create(UUID classId, CreateInput input, AuthenticatedUser actor) {
-        var c = access.classroom(classId, actor, true); writable(c); validate(input); period(input.startDate(), input.endDate());
-        var p = new PedagogicalProject(classId, input, actor.id());
+    public View create(UUID classId, CreateInput input, AuthenticatedUser actor) { return create(classId, input, actor, null); }
+    @Transactional
+    public View create(UUID classId, CreateInput input, AuthenticatedUser actor, UUID studentId) {
+        var c = access.contentClass(classId, studentId, actor, true); writable(c); validate(input); period(input.startDate(), input.endDate());
+        var p = new PedagogicalProject(classId, input, actor.id()); p.studentId=studentId;
         identity.displayNames(c.teacherIds).entrySet().stream().sorted(Map.Entry.comparingByValue())
                 .filter(t -> identity.activeUserHasAnyRole(t.getKey(), Set.of(Role.REQUESTER)))
                 .forEach(t -> p.teachers.add(new PlanningTeacher(t.getKey(), t.getValue())));
@@ -61,10 +66,14 @@ class ProjectService {
         return view(p, c);
     }
     @Transactional(readOnly=true)
-    public View get(UUID id, AuthenticatedUser actor) { var p = required(id); return view(p, access.classroom(p.classId, actor, false)); }
+    public View get(UUID id, AuthenticatedUser actor) { return get(id, actor, null); }
+    @Transactional(readOnly=true)
+    public View get(UUID id, AuthenticatedUser actor, UUID studentId) { var p = required(id, studentId); return view(p, access.contentClass(p.classId, studentId, actor, false)); }
     @Transactional
-    public View edit(UUID id, EditInput input, AuthenticatedUser actor) {
-        var p = required(id); var c = access.classroom(p.classId, actor, true); writable(c); validate(input); version(p, input.version());
+    public View edit(UUID id, EditInput input, AuthenticatedUser actor) { return edit(id, input, actor, null); }
+    @Transactional
+    public View edit(UUID id, EditInput input, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId); var c = access.contentClass(p.classId, studentId, actor, true); writable(c); validate(input); version(p, input.version());
         if (!p.status.equals("DRAFT")) throw DomainException.unprocessable("Reabra o projeto antes de editar.");
         period(input.startDate(), input.endDate());
         if (input.generalObjective().length() > 40000 || input.conclusion().length() > 40000
@@ -91,8 +100,10 @@ class ProjectService {
         return view(p, c);
     }
     @Transactional
-    public View transition(UUID id, long expected, boolean finalize, AuthenticatedUser actor) {
-        var p = required(id); var c = access.classroom(p.classId, actor, true); writable(c); version(p, expected);
+    public View transition(UUID id, long expected, boolean finalize, AuthenticatedUser actor) { return transition(id, expected, finalize, actor, null); }
+    @Transactional
+    public View transition(UUID id, long expected, boolean finalize, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId); var c = access.contentClass(p.classId, studentId, actor, true); writable(c); version(p, expected);
         if (!p.status.equals(finalize ? "DRAFT" : "FINALIZED")) throw DomainException.unprocessable("O projeto não está no estado esperado.");
         if (finalize && (blank(p.ageRange) || p.teachers.isEmpty() || p.generalObjective.blank() || p.conclusion.blank()
                 || p.specificObjectives.isEmpty() || p.specificObjectives.stream().anyMatch(this::blank)
@@ -103,10 +114,12 @@ class ProjectService {
         return view(p, c);
     }
     @Transactional
-    public void delete(UUID id, long expected, AuthenticatedUser actor) {
+    public void delete(UUID id, long expected, AuthenticatedUser actor) { delete(id, expected, actor, null); }
+    @Transactional
+    public void delete(UUID id, long expected, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId);
         if (!access.administrative(actor)) throw DomainException.forbidden("Esta ação exige perfil administrativo.");
-        var p = required(id);
-        writable(access.classroom(p.classId, actor, true));
+        writable(access.contentClass(p.classId, studentId, actor, true));
         version(p, expected);
         projects.delete(p); projects.flush();
         audit.record(actor.id(), "PED_PROJECT_DELETED", "PedagogicalProject", id, null);
@@ -118,6 +131,6 @@ class ProjectService {
     private View view(PedagogicalProject p, SchoolClass c) {
         return new View(p.id, p.classId, c.name, c.archived, p.title, p.startDate, p.endDate, Objects.toString(p.ageRange, ""), p.status,
                 teachers(p), p.generalObjective, p.specificObjectives.stream().map(s -> Objects.toString(s, "")).toList(), p.activities.stream().map(ProjectActivity::view).toList(),
-                p.conclusion, p.rowVersion, p.createdAt, p.updatedAt);
+                p.conclusion, p.rowVersion, p.createdAt, p.updatedAt, p.studentId);
     }
 }

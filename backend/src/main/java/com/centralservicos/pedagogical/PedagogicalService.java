@@ -14,13 +14,14 @@ public class PedagogicalService {
     private final WeeklyPlanningRepository plans;
     private final IdentityService identity;
     private final AuditService audit;
-    PedagogicalService(SchoolClassRepository classes, WeeklyPlanningRepository plans, IdentityService identity, AuditService audit) {
-        this.classes = classes; this.plans = plans; this.identity = identity; this.audit = audit;
+    private final AeeService aee;
+    PedagogicalService(SchoolClassRepository classes, WeeklyPlanningRepository plans, IdentityService identity, AuditService audit, AeeService aee) {
+        this.classes = classes; this.plans = plans; this.identity = identity; this.audit = audit; this.aee = aee;
     }
     boolean administrative(AuthenticatedUser actor) {
         return identity.activeUserHasAnyRole(actor.id(), Set.of(Role.ADMIN, Role.MANAGER));
     }
-    private void eligible(AuthenticatedUser actor) {
+    void eligible(AuthenticatedUser actor) {
         if (!identity.activeUserHasAnyRole(actor.id(), Set.of(Role.ADMIN, Role.MANAGER, Role.REQUESTER)))
             throw DomainException.forbidden("Você não possui acesso ao Pedagógico.");
     }
@@ -28,15 +29,23 @@ public class PedagogicalService {
         eligible(actor);
         if (!administrative(actor)) throw DomainException.forbidden("Esta ação exige perfil administrativo.");
     }
+    private boolean contentEditor(SchoolClass row, AuthenticatedUser actor) {
+        return administrative(actor) || identity.activeUserHasAnyRole(actor.id(), Set.of(Role.REQUESTER))
+                && row.teacherIds.contains(actor.id());
+    }
+    boolean canEdit(SchoolClass row, AuthenticatedUser actor) {
+        return !row.aee && !row.archived && contentEditor(row, actor);
+    }
     SchoolClass classroom(UUID id, AuthenticatedUser actor, boolean write) {
         eligible(actor);
         var row = (write ? classes.lockById(id) : classes.findById(id))
                 .orElseThrow(() -> DomainException.notFound("Turma não encontrada."));
-        if (!administrative(actor) && (!identity.activeUserHasAnyRole(actor.id(), Set.of(Role.REQUESTER)) || !row.teacherIds.contains(actor.id())))
-            throw DomainException.forbidden("Você não está alocada nesta turma.");
+        if (!contentEditor(row, actor) && (write || row.contentVisibility != ClassContentVisibility.PEDAGOGICAL_READ_ONLY))
+            throw DomainException.forbidden(write ? "Você possui apenas acesso de consulta a esta turma ou não está alocada nela." : "Você não está alocada nesta turma.");
         return row;
     }
     private void writable(SchoolClass row) {
+        if (row.aee) throw DomainException.unprocessable("Os conteúdos anteriores do AEE são somente para consulta. Crie novos conteúdos por aluno.");
         if (row.archived) throw DomainException.unprocessable("Reative a turma antes de alterar seus planejamentos.");
     }
     private void version(Long actual, Long expected) {
@@ -46,11 +55,23 @@ public class PedagogicalService {
     @Transactional(readOnly=true)
     public List<ClassView> classes(AuthenticatedUser actor) {
         eligible(actor);
-        return (administrative(actor) ? classes.findAllByOrderByNameAsc() : classes.findAllocated(actor.id()))
-                .stream().map(this::classView).toList();
+        return (administrative(actor) ? classes.findAllByOrderByNameAsc() : classes.findVisible(actor.id(), ClassContentVisibility.PEDAGOGICAL_READ_ONLY))
+                .stream().map(c -> classView(c, actor)).toList();
     }
     @Transactional(readOnly=true)
-    public ClassView getClass(UUID id, AuthenticatedUser actor) { return classView(classroom(id, actor, false)); }
+    public ClassView getClass(UUID id, AuthenticatedUser actor) {
+        eligible(actor);
+        var c=classes.findById(id).orElseThrow(() -> DomainException.notFound("Turma não encontrada."));
+        if (c.aee && aee.hasRegularAllocation(actor)) return classView(c,actor);
+        return classView(classroom(id,actor,false),actor);
+    }
+    SchoolClass contentClass(UUID classId, UUID studentId, AuthenticatedUser actor, boolean write) {
+        var c=studentId==null ? classroom(classId,actor,write) : aee.contentClass(studentId,actor,write);
+        if (!c.id.equals(classId)) throw DomainException.notFound("Conteúdo não encontrado neste contexto.");
+        if (write) writable(c);
+        return c;
+    }
+    String studentRoute(UUID studentId) { return aee.route(studentId); }
     @Transactional(readOnly=true)
     public List<Teacher> teachers(AuthenticatedUser actor) {
         admin(actor);
@@ -66,33 +87,41 @@ public class PedagogicalService {
             if (!row.teacherIds.contains(teacher) && !identity.activeUserHasAnyRole(teacher, Set.of(Role.REQUESTER)))
                 throw DomainException.unprocessable("Aloque apenas professoras solicitantes ativas.");
         }
+        if (input.aee()!=null) { aee.checkTypeChange(row,input.aee()); row.aee=input.aee(); }
         row.name = input.name().trim(); row.archived = input.archived();
+        if (input.contentVisibility() != null) row.contentVisibility = input.contentVisibility();
         row.teacherIds.clear(); row.teacherIds.addAll(input.teacherIds()); row.touch();
         classes.saveAndFlush(row);
         audit.record(actor.id(), id == null ? "PED_CLASS_CREATED" : "PED_CLASS_UPDATED", "SchoolClass", row.id, null);
-        return classView(row);
+        return classView(row, actor);
     }
     @Transactional(readOnly=true)
-    public List<Summary> list(UUID classId, Integer year, Integer month, String status, UUID teacherId, AuthenticatedUser actor) {
-        classroom(classId, actor, false);
+    public List<Summary> list(UUID classId, Integer year, Integer month, String status, UUID teacherId, AuthenticatedUser actor) { return list(classId, year, month, status, teacherId, actor, null); }
+    @Transactional(readOnly=true)
+    public List<Summary> list(UUID classId, Integer year, Integer month, String status, UUID teacherId, AuthenticatedUser actor, UUID studentId) {
+        contentClass(classId, studentId, actor, false);
         if (month != null && (year == null || month < 1 || month > 12)) throw DomainException.unprocessable("Período inválido.");
         if (year != null && (year < 1900 || year > 9998)) throw DomainException.unprocessable("Ano inválido.");
         if (status != null && !Set.of("DRAFT", "FINALIZED").contains(status)) throw DomainException.unprocessable("Status inválido.");
         LocalDate start = year == null ? null : LocalDate.of(year, month == null ? 1 : month, 1);
         LocalDate end = start == null ? null : month == null ? start.plusYears(1) : start.plusMonths(1);
-        return plans.findByClassIdOrderByWeekStartDesc(classId).stream()
+        return plans.findByClassIdAndStudentIdOrderByWeekStartDesc(classId, studentId).stream()
+                .filter(p -> Objects.equals(p.studentId,studentId))
                 .filter(p -> start == null || (!p.weekStart.plusDays(4).isBefore(start) && p.weekStart.isBefore(end)))
                 .filter(p -> status == null || status.equals(p.status))
                 .filter(p -> teacherId == null || p.teachers.stream().anyMatch(t -> t.teacherId.equals(teacherId)))
                 .map(p -> new Summary(p.id, p.classId, p.weekStart, p.weekStart.plusDays(4), p.theme, p.status, teacherViews(p), p.rowVersion)).toList();
     }
     @Transactional
-    public PlanView create(UUID classId, LocalDate monday, AuthenticatedUser actor) {
-        var classroom = classroom(classId, actor, true); writable(classroom);
+    public PlanView create(UUID classId, LocalDate monday, AuthenticatedUser actor) { return create(classId, monday, actor, null); }
+    @Transactional
+    public PlanView create(UUID classId, LocalDate monday, AuthenticatedUser actor, UUID studentId) {
+        var classroom = contentClass(classId, studentId, actor, true); writable(classroom);
         if (monday == null || monday.getDayOfWeek() != DayOfWeek.MONDAY || monday.getYear() < 1900 || monday.getYear() > 9998)
             throw DomainException.unprocessable("Selecione uma segunda-feira entre 1900 e 9998.");
-        if (plans.existsByClassIdAndWeekStart(classId, monday)) throw DomainException.conflict("Esta turma já possui planejamento para a semana.");
+        if (plans.existsByScopeTypeAndScopeIdAndWeekStart(studentId==null?"CLASS":"AEE_STUDENT", studentId==null?classId:studentId, monday)) throw DomainException.conflict("Esta turma já possui planejamento para a semana.");
         var p = new WeeklyPlanning(classId, monday, actor.id());
+        p.studentId=studentId; p.scopeType=studentId==null?"CLASS":"AEE_STUDENT"; p.scopeId=studentId==null?classId:studentId;
         identity.displayNames(classroom.teacherIds).entrySet().stream().sorted(Map.Entry.comparingByValue())
                 .filter(t -> identity.activeUserHasAnyRole(t.getKey(), Set.of(Role.REQUESTER)))
                 .forEach(t -> p.teachers.add(new PlanningTeacher(t.getKey(), t.getValue())));
@@ -102,12 +131,16 @@ public class PedagogicalService {
         return view(p, classroom);
     }
     @Transactional(readOnly=true)
-    public PlanView get(UUID id, AuthenticatedUser actor) {
-        var p = required(id); return view(p, classroom(p.classId, actor, false));
+    public PlanView get(UUID id, AuthenticatedUser actor) { return get(id, actor, null); }
+    @Transactional(readOnly=true)
+    public PlanView get(UUID id, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId); return view(p, contentClass(p.classId, studentId, actor, false));
     }
     @Transactional
-    public PlanView edit(UUID id, EditInput input, AuthenticatedUser actor) {
-        var p = required(id); var c = classroom(p.classId, actor, true); writable(c); version(p.rowVersion, input.version());
+    public PlanView edit(UUID id, EditInput input, AuthenticatedUser actor) { return edit(id, input, actor, null); }
+    @Transactional
+    public PlanView edit(UUID id, EditInput input, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId); var c = contentClass(p.classId, studentId, actor, true); writable(c); version(p.rowVersion, input.version());
         if (!p.status.equals("DRAFT")) throw DomainException.unprocessable("Reabra o planejamento antes de editar.");
         var old = new HashMap<UUID, PlanningTeacher>(); p.teachers.forEach(t -> old.put(t.teacherId, t));
         var selected = new ArrayList<PlanningTeacher>();
@@ -125,8 +158,10 @@ public class PedagogicalService {
         return view(p, c);
     }
     @Transactional
-    public PlanView transition(UUID id, long expected, boolean finalize, AuthenticatedUser actor) {
-        var p = required(id); var c = classroom(p.classId, actor, true); writable(c); version(p.rowVersion, expected);
+    public PlanView transition(UUID id, long expected, boolean finalize, AuthenticatedUser actor) { return transition(id, expected, finalize, actor, null); }
+    @Transactional
+    public PlanView transition(UUID id, long expected, boolean finalize, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId); var c = contentClass(p.classId, studentId, actor, true); writable(c); version(p.rowVersion, expected);
         if (finalize && !p.status.equals("DRAFT") || !finalize && !p.status.equals("FINALIZED"))
             throw DomainException.unprocessable("O planejamento não está no estado esperado.");
         if (finalize) {
@@ -141,20 +176,24 @@ public class PedagogicalService {
         return view(p, c);
     }
     @Transactional
-    public void delete(UUID id, long expected, AuthenticatedUser actor) {
+    public void delete(UUID id, long expected, AuthenticatedUser actor) { delete(id, expected, actor, null); }
+    @Transactional
+    public void delete(UUID id, long expected, AuthenticatedUser actor, UUID studentId) {
+        var p = required(id, studentId);
         admin(actor);
-        var p = required(id);
-        writable(classroom(p.classId, actor, true));
+        writable(contentClass(p.classId, studentId, actor, true));
         version(p.rowVersion, expected);
         plans.delete(p); plans.flush();
         audit.record(actor.id(), "PED_PLANNING_DELETED", "WeeklyPlanning", id, null);
     }
     private boolean blank(String value) { return value == null || value.isBlank(); }
-    private WeeklyPlanning required(UUID id) { return plans.findById(id).orElseThrow(() -> DomainException.notFound("Planejamento não encontrado.")); }
-    private ClassView classView(SchoolClass c) {
+    private WeeklyPlanning required(UUID id, UUID studentId) { return plans.findById(id).filter(p -> Objects.equals(p.studentId,studentId)).orElseThrow(() -> DomainException.notFound("Planejamento não encontrado.")); }
+    private ClassView classView(SchoolClass c, AuthenticatedUser actor) {
         var names = identity.displayNames(c.teacherIds);
+        boolean editable = canEdit(c, actor);
         return new ClassView(c.id, c.name, c.archived, names.entrySet().stream().sorted(Map.Entry.comparingByValue())
-                .map(t -> new Teacher(t.getKey(), t.getValue())).toList(), c.rowVersion);
+                .map(t -> new Teacher(t.getKey(), t.getValue())).toList(), c.rowVersion,
+                c.contentVisibility, editable, editable, administrative(actor), c.aee);
     }
     private List<Teacher> teacherViews(WeeklyPlanning p) { return p.teachers.stream().map(t -> new Teacher(t.teacherId, t.displayName)).toList(); }
     private PlanView view(WeeklyPlanning p, SchoolClass c) {

@@ -11,6 +11,7 @@ import java.util.*;
 class PedagogicalProject {
     @Id UUID id = UUID.randomUUID();
     UUID classId;
+    UUID studentId;
     String title;
     LocalDate startDate;
     LocalDate endDate;

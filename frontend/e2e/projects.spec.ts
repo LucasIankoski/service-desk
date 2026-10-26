@@ -4,7 +4,18 @@ import axe from "axe-core";
 import { projectReference } from "./fixtures/project-reference";
 import { plainRichText, projectInput, type Project } from "../src/api/projects";
 
-async function setup(page: Page, overrides: Partial<Project> = {}, roles = ["MANAGER"]) {
+test("leitora consulta projetos compartilhados sem criar, editar ou reabrir", async ({ page }) => {
+  await setup(page, {}, ["REQUESTER"], true);
+  await page.goto("/pedagogico/turmas/class/projetos");
+  await expect(page.getByRole("button", { name: "Criar projeto" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Amor e Graça no País das Maravilhas/ })).toBeVisible();
+  await page.goto("/pedagogico/projetos/project");
+  await expect(page.getByRole("button", { name: "Imprimir / Salvar PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Salvar rascunho|Finalizar|Reabrir|Excluir projeto|Voltar ao formulário/ })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Preenchimento do projeto" })).toHaveCount(0);
+});
+
+async function setup(page: Page, overrides: Partial<Project> = {}, roles = ["MANAGER"], sharedReader = false) {
   let project = structuredClone({ ...projectReference, ...overrides });
   let conflict = false, failure = false;
   const logo = `data:image/jpeg;base64,${readFileSync(new URL("./fixtures/project-reference-logo.jpg", import.meta.url)).toString("base64")}`;
@@ -16,7 +27,9 @@ async function setup(page: Page, overrides: Partial<Project> = {}, roles = ["MAN
     if (path.endsWith("/auth/csrf")) return json({ token: "test" });
     if (path.endsWith("/public/settings")) return json({ institutionName: "Escola Amor e Graça", schoolLogoUrl: logo, timezoneName: "America/Sao_Paulo" });
     if (path.includes("/notifications")) return json(path.endsWith("/unread-count") ? { count: 0 } : { content: [] });
-    if (path.endsWith("/classes/class")) return json({ id: "class", name: "BII", archived: project.archived, teachers: project.teachers, version: 0 });
+    if (path.endsWith("/classes/class")) return json({ id: "class", name: "BII", archived: project.archived, teachers: project.teachers, version: 0,
+      contentVisibility: sharedReader ? "PEDAGOGICAL_READ_ONLY" : "ALLOCATED_ONLY", canCreate: !project.archived && !sharedReader,
+      canEdit: !project.archived && !sharedReader, canManage: roles.some(r => r === "ADMIN" || r === "MANAGER") });
     if (path.endsWith("/classes/class/projects")) {
       if (method === "POST") project = { ...project, ...route.request().postDataJSON(), status: "DRAFT" };
       return json(method === "POST" ? project : deleted ? [] : [project], method === "POST" ? 201 : 200);

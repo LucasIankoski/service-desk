@@ -1,0 +1,17 @@
+package com.centralservicos.pedagogical;
+
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+
+/** Uses a disposable database supplied by the local integration-test runner. */
+@EnabledIfEnvironmentVariable(named = "EVENT_TEST_JDBC_URL", matches = ".+")
+class GeneralRecordDatabaseIT extends GeneralRecordTests {
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", () -> System.getenv("EVENT_TEST_JDBC_URL"));
+        registry.add("spring.datasource.username", () -> "postgres");
+        registry.add("spring.datasource.password", () -> "");
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    }
+}

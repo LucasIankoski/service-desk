@@ -44,8 +44,8 @@ spring:
 
 server:
   tomcat:
-    # 50 photos plus the JSON metadata part.
-    max-part-count: 51
+    # 100 event photos plus the JSON metadata part; class albums still enforce 50.
+    max-part-count: 101
   port: ${APP_PORT:8080}
   forward-headers-strategy: framework
   servlet:

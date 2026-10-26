@@ -13,8 +13,10 @@ class PhotoCleanupService {
     private final PhotoCleanupRepository queue;
     private final ActivityRecordRepository records;
     private final AttachmentStorage storage;
-    PhotoCleanupService(PhotoCleanupRepository queue, ActivityRecordRepository records, AttachmentStorage storage) {
+    private final AeeDocumentRepository documents;
+    PhotoCleanupService(PhotoCleanupRepository queue, ActivityRecordRepository records, AttachmentStorage storage, AeeDocumentRepository documents) {
         this.queue = queue; this.records = records; this.storage = storage;
+        this.documents=documents;
     }
     // Durable before writing bytes: a failed transaction or process restart leaves recoverable cleanup work.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -26,12 +28,14 @@ class PhotoCleanupService {
         queue.save(new PhotoCleanup(photo.originalKey, Instant.now()));
         queue.save(new PhotoCleanup(photo.thumbnailKey, Instant.now()));
     }
+    @Transactional
+    public void removedKey(String key) { queue.save(new PhotoCleanup(key, Instant.now())); }
     @Scheduled(fixedDelayString = "${app.photo-cleanup-delay-ms:60000}")
     @Transactional
     public void clean() {
         for (var entry : queue.findTop100ByEligibleAtBeforeOrderByEligibleAtAsc(Instant.now())) {
             try {
-                if (records.references(entry.storageKey) == 0) storage.delete(entry.storageKey);
+                if (records.references(entry.storageKey) == 0 && !documents.existsByStorageKey(entry.storageKey)) storage.delete(entry.storageKey);
                 queue.delete(entry);
             } catch (IOException exception) {
                 // Retain the durable job for the next attempt, without logging file or pupil data.

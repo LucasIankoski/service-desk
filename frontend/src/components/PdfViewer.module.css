@@ -1,0 +1,7 @@
+.viewer { min-width: 0; max-width: 100%; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0; }
+.toolbar label { display: flex; align-items: center; gap: .5rem; }
+.viewport { width: 100%; min-width: 0; max-width: 100%; overflow: auto; max-height: 78vh; background: var(--color-canvas); border: 1px solid var(--color-border); padding: 3px; }
+.sheet { position: relative; width: fit-content; background: white; }
+.sheet canvas { display: block; }
+.viewport:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }

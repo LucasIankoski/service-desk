@@ -8,6 +8,10 @@ class SchoolClass {
     @Id UUID id = UUID.randomUUID();
     String name;
     boolean archived;
+    boolean aee;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    ClassContentVisibility contentVisibility = ClassContentVisibility.ALLOCATED_ONLY;
     @ElementCollection
     @CollectionTable(name = "ped_allocation", joinColumns = @JoinColumn(name = "class_id"))
     @Column(name = "teacher_id")

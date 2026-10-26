@@ -3,6 +3,16 @@ import axe from "axe-core";
 import type { ActivityRecord } from "../src/api/records";
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3ioAAAAASUVORK5CYII=", "base64");
 const file = { name: "proposta.png", mimeType: "image/png", buffer: png };
+
+test("leitora consulta registros e fotos compartilhados sem ações de escrita", async ({ page }) => {
+  await setup(page, false);
+  await page.goto("/pedagogico/turmas/class/registros");
+  await expect(page.getByRole("button", { name: "Novo registro" })).toHaveCount(0);
+  await page.getByRole("link", { name: /Descobrindo as cores/ }).click();
+  await expect(page.getByRole("button", { name: /Editar registro|Excluir registro/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Ampliar foto 1 de Descobrindo as cores" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
 async function setup(page: Page, canEdit = true, archived = false) {
   let record: ActivityRecord = { id: "album", classId: "class", className: "BII", archived, title: "Descobrindo as cores", activityDate: "2026-09-27", authorId: "a", authorName: "Cristine", version: 0, canEdit: canEdit && !archived, createdAt: "2026-09-27T12:00:00Z", updatedAt: "2026-09-27T12:00:00Z", attachmentLimitMb: 5,
     photos: [1, 2, 3].map(i => ({ id: String(i), url: `/api/v1/pedagogical/records/album/photos/${i}`, thumbnailUrl: `/api/v1/pedagogical/records/album/photos/${i}/thumbnail`, width: i === 2 ? 400 : 800, height: i === 2 ? 800 : 400 })) };
@@ -15,7 +25,9 @@ async function setup(page: Page, canEdit = true, archived = false) {
     if (path.endsWith("/public/settings")) return json({ institutionName: "Escola Amor e Graça", timezoneName: "America/Sao_Paulo" });
     if (path.includes("/notifications")) return json(path.endsWith("/unread-count") ? { count: 0 } : { content: [] });
     if (path.includes("/photos/")) return route.fulfill({ contentType: "image/svg+xml", body: `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="#e4efe8"/><circle cx="230" cy="260" r="150" fill="#e9b653"/><circle cx="490" cy="220" r="130" fill="#659ba8"/><path d="M450 400L700 100L780 450Z" fill="#b36978"/></svg>` });
-    if (path.endsWith("/classes/class")) return json({ id: "class", name: "BII", archived, teachers: [], version: 0 });
+    if (path.endsWith("/classes/class")) return json({ id: "class", name: "BII", archived, teachers: [], version: 0,
+      contentVisibility: canEdit ? "ALLOCATED_ONLY" : "PEDAGOGICAL_READ_ONLY", canCreate: canEdit && !archived,
+      canEdit: canEdit && !archived, canManage: false });
     if (path.endsWith("/classes/class/records") && method === "GET") return json({ items: removed ? [] : [{ ...record, cover: record.photos[0], photoCount: record.photos.length }], page: 0, totalPages: 1, totalElements: removed ? 0 : 1, attachmentLimitMb: 5 });
     if (path.endsWith("/records/album") && method === "DELETE") { removed = true; return route.fulfill({ status: 204 }); }
     if (path.endsWith("/records/album") && method === "GET") return json(record);
@@ -84,14 +96,15 @@ test("aviso de saída, limites de fotos e exclusão confirmada", async ({ page }
   await page.goto("/pedagogico/registros/album");
   await page.getByRole("button", { name: "Editar registro" }).click();
   await page.getByLabel("Título da proposta").fill("Não perder");
-  await page.getByRole("link", { name: "Registros", exact: true }).click();
+  await page.getByRole("navigation", { name: "Diretórios" }).getByRole("link", { name: "Registros", exact: true }).click();
   await expect(page.getByText("Existem alterações não salvas.")).toBeVisible();
   await page.getByRole("button", { name: "Continuar editando" }).click();
+  await expect(page.getByRole("button", { name: "Continuar editando" })).toHaveCount(0);
   await page.getByLabel("Fotos da proposta").setInputFiles({ ...file, name: "foto.heic" });
   await expect(page.getByRole("alert")).toContainText("JPG, PNG ou WebP");
   await page.getByLabel("Fotos da proposta").setInputFiles(Array.from({ length: 48 }, (_, i) => ({ ...file, name: `${i}.png` })));
   await expect(page.getByRole("alert")).toContainText("50 fotos");
-  await page.getByRole("link", { name: "Registros", exact: true }).click();
+  await page.getByRole("navigation", { name: "Diretórios" }).getByRole("link", { name: "Registros", exact: true }).click();
   await page.getByRole("button", { name: "Descartar e sair" }).click();
   await page.goto("/pedagogico/registros/album");
   await page.getByRole("button", { name: "Excluir registro" }).click();
@@ -104,7 +117,7 @@ test("colega consulta sem editar e turma arquivada bloqueia cadastro", async ({ 
   await page.goto("/pedagogico/registros/album");
   await expect(page.getByRole("button", { name: "Editar registro" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Excluir registro" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Registros", exact: true }).click();
+  await page.getByRole("navigation", { name: "Diretórios" }).getByRole("link", { name: "Registros", exact: true }).click();
   await expect(page.getByRole("button", { name: "Novo registro" })).toHaveCount(0);
 });
 

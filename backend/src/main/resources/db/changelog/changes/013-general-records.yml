@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-general-records
+      author: service-desk-team
+      changes:
+        - dropNotNullConstraint:
+            tableName: ped_record
+            columnName: class_id
+            columnDataType: varchar(36)

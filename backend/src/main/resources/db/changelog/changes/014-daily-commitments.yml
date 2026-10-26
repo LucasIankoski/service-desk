@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-daily-commitments
+      author: service-desk-team
+      changes:
+        - addColumn:
+            tableName: agenda_occurrence
+            columns:
+              - column:
+                  name: kind_name
+                  type: varchar(32)
+                  defaultValue: OCCURRENCE
+                  constraints:
+                    nullable: false

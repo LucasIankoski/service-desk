@@ -32,5 +32,5 @@ public final class ProjectViews {
                        LocalDate startDate, LocalDate endDate, String ageRange, String status,
                        List<PedagogicalViews.Teacher> teachers, RichText generalObjective,
                        List<String> specificObjectives, List<Activity> activities, RichText conclusion,
-                       long version, Instant createdAt, Instant updatedAt) {}
+                       long version, Instant createdAt, Instant updatedAt, UUID studentId) {}
 }

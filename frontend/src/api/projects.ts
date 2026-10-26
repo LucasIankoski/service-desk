@@ -10,7 +10,7 @@ export interface ProjectSummary {
   status: "DRAFT" | "FINALIZED"; teachers: Teacher[]; version: number;
 }
 export interface Project extends ProjectSummary {
-  className: string; archived: boolean; ageRange: string; generalObjective: RichText;
+  className: string; archived: boolean; studentId?: string; ageRange: string; generalObjective: RichText;
   specificObjectives: string[]; activities: ProjectActivity[]; conclusion: RichText; createdAt: string; updatedAt: string;
 }
 export interface ProjectCreate { title: string; startDate: string; endDate: string }

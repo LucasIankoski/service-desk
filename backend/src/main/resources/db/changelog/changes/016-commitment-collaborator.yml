@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 016-commitment-collaborator
+      author: service-desk-team
+      changes:
+        - addColumn:
+            tableName: agenda_occurrence
+            columns:
+              - column: { name: collaborator_id, type: varchar(36) }
+        - addForeignKeyConstraint:
+            baseTableName: agenda_occurrence
+            baseColumnNames: collaborator_id
+            referencedTableName: user_account
+            referencedColumnNames: id
+            constraintName: fk_commitment_collaborator

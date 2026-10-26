@@ -1,0 +1,232 @@
+databaseChangeLog:
+- changeSet:
+    id: 015-aee-students
+    author: service-desk-team
+    changes:
+    - addColumn:
+        tableName: ped_class
+        columns:
+        - column:
+            name: aee
+            type: boolean
+            defaultValueBoolean: false
+            constraints:
+              nullable: false
+    - createTable:
+        tableName: aee_student
+        columns:
+        - column:
+            name: id
+            type: varchar(36)
+            constraints:
+              nullable: false
+              primaryKey: true
+        - column:
+            name: aee_class_id
+            type: varchar(36)
+            constraints:
+              nullable: false
+        - column:
+            name: class_id
+            type: varchar(36)
+            constraints:
+              nullable: false
+        - column:
+            name: name
+            type: varchar(160)
+            constraints:
+              nullable: false
+        - column:
+            name: archived
+            type: boolean
+            constraints:
+              nullable: false
+        - column:
+            name: row_version
+            type: bigint
+            constraints:
+              nullable: false
+        - column:
+            name: created_at
+            type: timestamp
+            constraints:
+              nullable: false
+        - column:
+            name: updated_at
+            type: timestamp
+            constraints:
+              nullable: false
+    - addForeignKeyConstraint:
+        baseTableName: aee_student
+        baseColumnNames: aee_class_id
+        referencedTableName: ped_class
+        referencedColumnNames: id
+        constraintName: fk_aee_student_aee_class_id
+    - addForeignKeyConstraint:
+        baseTableName: aee_student
+        baseColumnNames: class_id
+        referencedTableName: ped_class
+        referencedColumnNames: id
+        constraintName: fk_aee_student_class_id
+    - addColumn:
+        tableName: ped_planning
+        columns:
+        - column:
+            name: student_id
+            type: varchar(36)
+            constraints:
+              nullable: true
+    - addForeignKeyConstraint:
+        baseTableName: ped_planning
+        baseColumnNames: student_id
+        referencedTableName: aee_student
+        referencedColumnNames: id
+        constraintName: fk_ped_planning_student
+    - addColumn:
+        tableName: ped_project
+        columns:
+        - column:
+            name: student_id
+            type: varchar(36)
+            constraints:
+              nullable: true
+    - addForeignKeyConstraint:
+        baseTableName: ped_project
+        baseColumnNames: student_id
+        referencedTableName: aee_student
+        referencedColumnNames: id
+        constraintName: fk_ped_project_student
+    - addColumn:
+        tableName: ped_record
+        columns:
+        - column:
+            name: student_id
+            type: varchar(36)
+            constraints:
+              nullable: true
+    - addForeignKeyConstraint:
+        baseTableName: ped_record
+        baseColumnNames: student_id
+        referencedTableName: aee_student
+        referencedColumnNames: id
+        constraintName: fk_ped_record_student
+    - addColumn:
+        tableName: ped_planning
+        columns:
+        - column:
+            name: scope_type
+            type: varchar(32)
+            constraints:
+              nullable: false
+            defaultValue: CLASS
+        - column:
+            name: scope_id
+            type: varchar(36)
+            constraints:
+              nullable: true
+    - sql:
+        sql: UPDATE ped_planning SET scope_id = class_id
+    - addNotNullConstraint:
+        tableName: ped_planning
+        columnName: scope_id
+        columnDataType: varchar(36)
+    - dropUniqueConstraint:
+        tableName: ped_planning
+        constraintName: uq_ped_class_week
+    - addUniqueConstraint:
+        tableName: ped_planning
+        columnNames: scope_type, scope_id, week_start
+        constraintName: uq_ped_scope_week
+    - createTable:
+        tableName: aee_document
+        columns:
+        - column:
+            name: id
+            type: varchar(36)
+            constraints:
+              nullable: false
+              primaryKey: true
+        - column:
+            name: student_id
+            type: varchar(36)
+            constraints:
+              nullable: false
+        - column:
+            name: filename
+            type: varchar(255)
+            constraints:
+              nullable: false
+        - column:
+            name: storage_key
+            type: varchar(500)
+            constraints:
+              nullable: false
+        - column:
+            name: size
+            type: bigint
+            constraints:
+              nullable: false
+        - column:
+            name: author_id
+            type: varchar(36)
+            constraints:
+              nullable: false
+        - column:
+            name: author_name
+            type: varchar(160)
+            constraints:
+              nullable: false
+        - column:
+            name: row_version
+            type: bigint
+            constraints:
+              nullable: false
+        - column:
+            name: created_at
+            type: timestamp
+            constraints:
+              nullable: false
+    - addForeignKeyConstraint:
+        baseTableName: aee_document
+        baseColumnNames: student_id
+        referencedTableName: aee_student
+        referencedColumnNames: id
+        constraintName: fk_aee_document_student
+    - createIndex:
+        tableName: aee_student
+        indexName: ix_aee_student_context
+        columns:
+        - column:
+            name: aee_class_id
+        - column:
+            name: class_id
+        - column:
+            name: name
+    - createIndex:
+        tableName: aee_document
+        indexName: ix_aee_document_context
+        columns:
+        - column:
+            name: student_id
+        - column:
+            name: created_at
+    - createIndex:
+        tableName: ped_record
+        indexName: ix_ped_record_context
+        columns:
+        - column:
+            name: class_id
+        - column:
+            name: student_id
+        - column:
+            name: activity_date
+    - createIndex:
+        tableName: ped_project
+        indexName: ix_ped_project_context
+        columns:
+        - column:
+            name: class_id
+        - column:
+            name: student_id
+        - column:
+            name: start_date
