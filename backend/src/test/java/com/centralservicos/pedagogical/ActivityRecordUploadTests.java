@@ -65,6 +65,35 @@ class ActivityRecordUploadTests {
         }
     }
 
+    @Test void realMultipartAcceptsHundredGeneralPhotosAndKeepsThemAcrossEdits() throws Exception {
+        var account = identity.create(UUID.randomUUID() + "@example.test", "Professora", Set.of(Role.REQUESTER), null).user();
+        identity.changePassword(account.id(), "permanent-password-123");
+        var actor = new AuthenticatedUser(account.id(), account.email(), account.displayName(), "unused", account.roles(), true, false);
+        var base = "http://localhost:" + port + "/api/v1";
+        try (var http = HttpClient.newBuilder().cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL)).build()) {
+            var csrf = csrf(http, base);
+            var login = HttpRequest.newBuilder(URI.create(base + "/auth/session"))
+                    .header("Content-Type", "application/json").header(csrf.get("headerName").asText(), csrf.get("token").asText())
+                    .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("email", account.email(), "password", "permanent-password-123")))).build();
+            assertThat(http.send(login, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
+            csrf = csrf(http, base);
+            var created = upload(http, base + "/records", "POST", csrf, new Input("Evento com 100 fotos", LocalDate.of(2026, 10, 25), null, List.of()), 100);
+            assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+            var data = json.readTree(created.body());
+            assertThat(data.get("photos").size()).isEqualTo(100);
+            var id = UUID.fromString(data.get("id").asText());
+            var saved = records.getGeneral(id, actor);
+            var keep = saved.photos().stream().map(Photo::id).toList();
+            var updated = upload(http, base + "/records/" + id, "PUT", csrf, new Input("Manter 100", saved.activityDate(), saved.version(), keep), 0);
+            assertThat(updated.statusCode()).as(updated.body()).isEqualTo(200);
+            var current = records.getGeneral(id, actor);
+            var overflow = upload(http, base + "/records/" + id, "PUT", csrf, new Input("Não salvar 101", current.activityDate(), current.version(), keep), 1);
+            assertThat(overflow.statusCode()).as(overflow.body()).isEqualTo(422);
+            assertThat(records.getGeneral(id, actor).title()).isEqualTo("Manter 100");
+            records.deleteGeneral(id, current.version(), actor);
+        }
+    }
+
     private JsonNode csrf(HttpClient http, String base) throws Exception {
         return json.readTree(http.send(HttpRequest.newBuilder(URI.create(base + "/auth/csrf")).GET().build(), HttpResponse.BodyHandlers.ofString()).body());
     }

@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-pedagogical-class-visibility
+      author: service-desk-team
+      changes:
+        - addColumn:
+            tableName: ped_class
+            columns:
+              - column:
+                  name: content_visibility
+                  type: varchar(32)
+                  defaultValue: ALLOCATED_ONLY
+                  constraints:
+                    nullable: false
+      rollback:
+        - dropColumn:
+            tableName: ped_class
+            columnName: content_visibility

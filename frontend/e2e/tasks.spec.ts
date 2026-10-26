@@ -15,6 +15,7 @@ async function setup(page: Page, roles = ["MANAGER"]) {
   let items = structuredClone(seed);
   let conflict = false;
   let occurrenceConflict = false;
+  const commitments: AgendaOccurrence[] = [];
   let notes: AgendaOccurrence[] = [{ id: "note", date: "2026-09-05", body: "Apresentação da equipe no período da manhã.", createdById: manager.id, createdByName: manager.displayName, version: 0, createdAt: "2026-09-05T12:00:00Z", updatedAt: "2026-09-05T12:00:00Z" }];
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -24,22 +25,24 @@ async function setup(page: Page, roles = ["MANAGER"]) {
     if (url.pathname.endsWith("/auth/me")) return json({ ...manager, email: "manager@example.test", roles, passwordChangeRequired: false });
     if (url.pathname.endsWith("/auth/csrf")) return json({ token: "test" });
     if (url.pathname.endsWith("/users/managers")) return json([manager, colleague]);
-    if (url.pathname.includes("/agenda/occurrences")) {
+    if (url.pathname.endsWith("/commitments/collaborators")) return json([{ id: "pamela", displayName: "Pamela Vidaletti", active: true }, { ...colleague, active: false }]);
+    if (url.pathname.includes("/agenda/occurrences") || url.pathname.includes("/agenda/commitments")) {
+      const collection = url.pathname.includes("/agenda/commitments") ? commitments : notes;
       const id = url.pathname.split("/")[5];
-      if (method === "GET") return json(notes.filter((note) => note.date >= url.searchParams.get("start")! && note.date < url.searchParams.get("end")!));
+      if (method === "GET") return json(collection.filter((note) => note.date >= url.searchParams.get("start")! && note.date < url.searchParams.get("end")!));
       if (method === "POST") {
-        const note = { ...route.request().postDataJSON(), id: `note-${notes.length}`, createdById: manager.id, createdByName: manager.displayName, version: 0, createdAt: "2026-09-05T15:00:00Z", updatedAt: "2026-09-05T15:00:00Z" };
-        notes.push(note);
+        const note = { ...route.request().postDataJSON(), collaboratorName: route.request().postDataJSON().collaboratorId === "pamela" ? "Pamela Vidaletti" : colleague.displayName, id: `note-${collection.length}`, createdById: manager.id, createdByName: manager.displayName, version: 0, createdAt: "2026-09-05T15:00:00Z", updatedAt: "2026-09-05T15:00:00Z" };
+        collection.push(note);
         return json(note, 201);
       }
-      const note = notes.find((candidate) => candidate.id === id)!;
+      const note = collection.find((candidate) => candidate.id === id)!;
       if (occurrenceConflict) {
         occurrenceConflict = false;
         note.version++;
         note.body = "Anotação atualizada por colega";
         return json({ detail: "Esta ocorrência mudou. Feche a edição e abra novamente." }, 409);
       }
-      if (method === "DELETE") { notes = notes.filter((candidate) => candidate.id !== id); return route.fulfill({ status: 204 }); }
+      if (method === "DELETE") { collection.splice(collection.indexOf(note), 1); return route.fulfill({ status: 204 }); }
       const input = route.request().postDataJSON();
       if (input.version !== note.version) return json({ detail: "Esta ocorrência mudou." }, 409);
       Object.assign(note, input, { version: note.version + 1 });
@@ -80,6 +83,49 @@ async function navigate(page: Page, label: string) {
   await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
   if (label === "Tarefas") await page.getByRole("combobox", { name: "Visualização", exact: true }).selectOption("MONTH");
 }
+
+test("compromissos ficam acima das ocorrências com anotações independentes e conflito preservado", async ({ page }, info) => {
+  const state = await setup(page);
+  await page.goto("/tarefas");
+  const commitment = page.getByRole("complementary", { name: "Compromissos", exact: true });
+  const occurrence = page.getByRole("complementary", { name: "Ocorrências do dia", exact: true });
+  for (const name of ["Compromissos", "Ocorrências do dia"]) {
+    const toggle = page.getByRole("button", { name, exact: true });
+    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  }
+  const commitmentsBox = await commitment.boundingBox(), occurrencesBox = await occurrence.boundingBox();
+  expect(commitmentsBox!.y).toBeLessThan(occurrencesBox!.y);
+  await commitment.getByLabel("Data dos compromissos").fill("2026-09-05");
+  await occurrence.getByLabel("Data das ocorrências").fill("2026-09-05");
+  await expect(occurrence.getByText("Apresentação da equipe no período da manhã.")).toBeVisible();
+  await expect(commitment.getByText("Nenhum compromisso neste dia.")).toBeVisible();
+  await commitment.getByRole("button", { name: "Novo compromisso", exact: true }).click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Colaborador", { exact: true }).selectOption("pamela");
+  await dialog.getByRole("textbox", { name: "Anotação", exact: true }).fill("Reunião com a equipe");
+  await dialog.getByRole("button", { name: "Salvar compromisso" }).click();
+  await expect(commitment.getByText("Reunião com a equipe")).toBeVisible();
+  await expect(commitment.getByText("Pamela Vidaletti", { exact: true })).toBeVisible();
+  await expect(occurrence.getByText("Reunião com a equipe")).toHaveCount(0);
+  await commitment.getByRole("button", { name: "Editar compromisso 1" }).click();
+  dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Colaborador", { exact: true })).toHaveValue("pamela");
+  await dialog.getByRole("textbox", { name: "Anotação", exact: true }).fill("Meu compromisso revisado");
+  state.occurrenceConflict();
+  await dialog.getByRole("button", { name: "Salvar compromisso" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("mudou");
+  await expect(dialog.getByRole("textbox", { name: "Anotação", exact: true })).toHaveValue("Meu compromisso revisado");
+  await dialog.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await commitment.getByRole("button", { name: "Editar compromisso 1" }).click();
+  await page.getByRole("dialog").getByRole("textbox", { name: "Anotação", exact: true }).fill("Compromisso confirmado");
+  await page.getByRole("dialog").getByRole("button", { name: "Salvar compromisso" }).click();
+  await expect(commitment.getByText("Compromisso confirmado")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("compromissos-e-ocorrencias.png"), fullPage: true });
+  page.once("dialog", d => d.accept());
+  await commitment.getByRole("button", { name: "Excluir compromisso 1" }).click();
+  await expect(commitment.getByText("Nenhum compromisso neste dia.")).toBeVisible();
+  await expect(occurrence.getByText("Apresentação da equipe no período da manhã.")).toBeVisible();
+});
 
 test("monthly tasks, filters, navigation and accessibility", async ({ page }, testInfo) => {
   await setup(page, ["MANAGER", "ADMIN"]);
@@ -164,6 +210,8 @@ test("create in Agenda, edit in Tasks and delete in Agenda", async ({ page }) =>
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("radio", { name: "Demanda interna" }).check();
   await dialog.getByLabel("Título", { exact: true }).fill("Demanda da Agenda");
+  await dialog.getByLabel("Data inicial", { exact: true }).fill("2026-09-05");
+  await dialog.getByLabel("Data final", { exact: true }).fill("2026-09-05");
   await dialog.getByRole("button", { name: "Adicionar à agenda" }).click();
   await expect(dialog).toHaveCount(0);
   await navigate(page, "Tarefas");

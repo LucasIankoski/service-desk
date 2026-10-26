@@ -70,3 +70,19 @@ export function updateAgendaOccurrence(id: string, input: { date: string; body: 
 export function deleteAgendaOccurrence(id: string, version: number) {
   return apiFetch<void>(`/api/v1/agenda/occurrences/${id}?version=${version}`, { method: "DELETE" });
 }
+
+export function listAgendaCommitments(start: string, end: string) {
+  return apiFetch<AgendaOccurrence[]>(`/api/v1/agenda/commitments?${new URLSearchParams({ start, end })}`);
+}
+export function listCommitmentCollaborators() {
+  return apiFetch<{ id: string; displayName: string; active: boolean }[]>("/api/v1/agenda/commitments/collaborators");
+}
+export function createAgendaCommitment(input: { date: string; body: string; collaboratorId?: string }) {
+  return apiFetch<AgendaOccurrence>("/api/v1/agenda/commitments", { method: "POST", body: JSON.stringify(input) });
+}
+export function updateAgendaCommitment(id: string, input: { date: string; body: string; version: number; collaboratorId?: string }) {
+  return apiFetch<AgendaOccurrence>(`/api/v1/agenda/commitments/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+export function deleteAgendaCommitment(id: string, version: number) {
+  return apiFetch<void>(`/api/v1/agenda/commitments/${id}?version=${version}`, { method: "DELETE" });
+}

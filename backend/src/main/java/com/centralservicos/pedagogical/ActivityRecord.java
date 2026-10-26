@@ -9,6 +9,7 @@ import java.util.*;
 class ActivityRecord {
     @Id UUID id = UUID.randomUUID();
     UUID classId;
+    UUID studentId;
     @Column(length = 200) String title;
     LocalDate activityDate;
     UUID authorId;

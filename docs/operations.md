@@ -1,5 +1,13 @@
 # Operação
 
+## Atualização: Registros gerais e Compromissos
+
+Publique frontend e backend juntos e preserve os volumes de banco e anexos. A migration 013 torna o vínculo com turma opcional nos registros; a 014 identifica ocorrências e compromissos. Nenhum registro existente é convertido em álbum geral, e as anotações existentes permanecem ocorrências.
+
+A configuração do Tomcat passa a aceitar 101 partes multipart para os 100 arquivos e metadados. Os limites de fotos (100 gerais/50 por turma), tamanho individual configurado e 100 MiB por envio continuam sendo validados no serviço.
+
+Uma versão anterior não entende registros sem turma nem a categoria de compromissos. Não reverta somente a imagem sobre dados novos: interrompa escritas e restaure banco e anexos do mesmo backup, ou faça uma migração de reversão específica e validada. Confira o roteiro em `docs/event-records-validation.md` antes da publicação.
+
 ## Backup e restauração
 
 O banco e o volume de anexos formam uma unidade lógica. Pause novas escritas, registre o instante, faça backup consistente do banco e depois copie o volume. Restaure ambos para o mesmo ponto e valide hashes de anexos antes de liberar tráfego.
@@ -39,6 +47,14 @@ Banco, bootstrap e master key entram por Docker Secrets ou variáveis protegidas
 ## Incidente
 
 Revogue sessões, desative a conta afetada, preserve logs/auditoria, troque secrets relacionados e valide integridade de banco e anexos. Nunca copie descrições ou arquivos para tickets externos de incidente.
+
+## Atualização: visibilidade das turmas pedagógicas
+
+A migration 012 adiciona `ped_class.content_visibility` com valor padrão `ALLOCATED_ONLY`, inclusive para turmas existentes. Não libera consulta automaticamente. Publique frontend e backend juntos: as telas passam a usar as permissões `canCreate`, `canEdit` e `canManage` retornadas pela API.
+
+ADMIN/MANAGER podem selecionar Compartilhada com o Pedagógico em Gerenciar turma. Essa opção libera todo o histórico, inclusive rascunhos e fotos, somente para contas ativas com acesso ao Pedagógico. Não altera a alocação, a autoria nem as regras de escrita. Voltar para Restrita revoga a consulta dos não alocados na próxima requisição à API.
+
+Antes da release, valide a migration na matriz de bancos e execute o roteiro de turmas compartilhadas em `docs/pedagogical-validation.md`. O rollback da coluna remove a configuração de compartilhamento; faça backup antes de reverter. A versão anterior da aplicação ignora o compartilhamento e volta a exigir alocação para consulta de professoras.
 
 ## Anexos no MVP
 

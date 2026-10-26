@@ -14,6 +14,7 @@ export function ProjectDocument({ project, unsaved = false }: { project: Project
       <h1>{project.title}</h1>
     </header>
     {(project.status === "DRAFT" || unsaved) && <p className={styles.draftMark}>RASCUNHO{unsaved ? " · ALTERAÇÕES NÃO SALVAS" : ""}</p>}
+    {project.studentId && <p>{project.className}</p>}
     <div className={styles.metadata}>PERÍODO: {periodDate(project.startDate)} À {periodDate(project.endDate)}<br />FAIXA ETÁRIA: {project.ageRange.toLocaleUpperCase("pt-BR")}</div>
     <section className={styles.general}><h2>OBJETIVO GERAL:</h2><RichTextView value={project.generalObjective} /></section>
     <section><h2>OBJETIVOS ESPECÍFICOS:</h2><ul>{project.specificObjectives.map(s => s.trim()).filter(Boolean).map((objective, i) => <li key={i}>{objective}</li>)}</ul></section>

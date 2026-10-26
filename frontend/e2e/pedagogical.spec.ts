@@ -2,9 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
 import type { Planning, SchoolClass } from "../src/api/pedagogical";
 
-async function setup(page: Page, roles = ["MANAGER"]) {
+async function setup(page: Page, roles = ["MANAGER"], sharedReader = false) {
   const teachers = [{ id: "a", displayName: "Cristine" }, { id: "b", displayName: "Magali" }];
-  let classroom: SchoolClass = { id: "class", name: "BII", archived: false, teachers, version: 0 };
+  let classroom: SchoolClass = { id: "class", name: "BII", archived: false, teachers, version: 0,
+    contentVisibility: sharedReader ? "PEDAGOGICAL_READ_ONLY" : "ALLOCATED_ONLY",
+    canCreate: !sharedReader, canEdit: !sharedReader, canManage: roles.some(r => r === "ADMIN" || r === "MANAGER") };
   let plan: Planning = {
     id: "plan", classId: "class", className: "BII", archived: false, weekStart: "2026-09-28", weekEnd: "2026-10-02",
     theme: "", status: "DRAFT", teachers, version: 0, createdAt: "2026-09-01T12:00:00Z", updatedAt: "2026-09-01T12:00:00Z",
@@ -119,6 +121,38 @@ test("professora não gerencia turmas e editor é acessível", async ({ page }) 
   const results = await page.evaluate(async () => window.axe.run(document.querySelector("main")!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } }));
   expect(results.violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});
+
+test("gestão configura compartilhamento e leitores consultam sem ações de escrita", async ({ page }, info) => {
+  await setup(page);
+  await page.goto("/pedagogico");
+  await page.getByRole("button", { name: "Gerenciar turma" }).click();
+  await page.getByLabel("Visibilidade do conteúdo").selectOption("PEDAGOGICAL_READ_ONLY");
+  const saved = page.waitForRequest(r => r.method() === "PUT" && r.url().endsWith("/classes/class"));
+  await page.getByRole("button", { name: "Salvar turma" }).click();
+  expect((await saved).postDataJSON().contentVisibility).toBe("PEDAGOGICAL_READ_ONLY");
+  await expect(page.getByText("Compartilhada com o Pedagógico", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Gerenciar turma" }).click();
+  await expect(page.getByLabel("Visibilidade do conteúdo")).toHaveValue("PEDAGOGICAL_READ_ONLY");
+  await page.screenshot({ path: info.outputPath("configuracao-compartilhamento.png"), fullPage: true });
+});
+
+test("leitora vê turma compartilhada e imprime rascunho sem poder editar", async ({ page }, info) => {
+  await setup(page, ["REQUESTER"], true);
+  await page.goto("/pedagogico");
+  await expect(page.getByText("Compartilhada · somente consulta", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Gerenciar turma" })).toHaveCount(0);
+  await page.getByRole("link", { name: "BII", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Criar planejamento" })).toHaveCount(0);
+  await page.goto("/pedagogico/planejamentos/plan");
+  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Imprimir / Salvar PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Salvar rascunho|Finalizar|Reabrir|Excluir planejamento|Voltar ao formulário/ })).toHaveCount(0);
+  await expect(page.getByLabel("Tema / Projeto / Experiência da semana", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("consulta-compartilhada.png"), fullPage: true });
+  await page.evaluate(axe.source);
+  const results = await page.evaluate(async () => window.axe.run(document.querySelector("main")!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } }));
+  expect(results.violations).toEqual([]);
 });
 
 test("prévia longa em tablet e impressão sem corte de conteúdo", async ({ page }, info) => {

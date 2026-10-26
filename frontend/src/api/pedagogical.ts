@@ -1,7 +1,11 @@
 import { apiFetch } from "./http";
 
 export interface Teacher { id: string; displayName: string }
-export interface SchoolClass { id: string; name: string; archived: boolean; teachers: Teacher[]; version: number }
+export type ClassContentVisibility = "ALLOCATED_ONLY" | "PEDAGOGICAL_READ_ONLY";
+export interface SchoolClass {
+  id: string; name: string; archived: boolean; teachers: Teacher[]; version: number;
+  contentVisibility: ClassContentVisibility; canCreate: boolean; canEdit: boolean; canManage: boolean; aee?: boolean;
+}
 export interface PlanningDay {
   date: string; noClass: boolean; reason: string | null; proposal: string | null;
   objectives: string | null; development: string | null; resources: string | null;
@@ -13,7 +17,7 @@ export interface PlanSummary {
 export interface Planning extends PlanSummary {
   className: string; archived: boolean; days: PlanningDay[]; createdAt: string; updatedAt: string;
 }
-export interface ClassInput { name: string; archived: boolean; teacherIds: string[]; version?: number }
+export interface ClassInput { name: string; archived: boolean; teacherIds: string[]; version?: number; contentVisibility?: ClassContentVisibility; aee?: boolean }
 export interface PlanningInput { version: number; theme: string; teacherIds: string[]; days: PlanningDay[] }
 const base = "/api/v1/pedagogical";
 export const deletePlan = (id: string, version: number) => apiFetch<void>(`${base}/plans/${id}?version=${version}`, { method: "DELETE" });

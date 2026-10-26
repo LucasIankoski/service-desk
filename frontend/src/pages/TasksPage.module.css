@@ -46,4 +46,5 @@ button.badge:disabled { cursor: wait; opacity: .7; }
 .dailyWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; min-width: 0; }
 .assigneeNames { display: flex; flex-direction: column; gap: 5px; min-width: 110px; }
 .assigneeNames span { padding: 2px 6px; border-radius: 5px; background: var(--color-canvas); border: 1px solid var(--color-border); }
-@media (max-width: 1199px) { .dailyWorkspace { grid-template-columns: minmax(0, 1fr); } .dailyWorkspace > aside { grid-row: 1; } }
+.dailyNotes { display: grid; gap: 18px; min-width: 0; }
+@media (max-width: 1199px) { .dailyWorkspace { grid-template-columns: minmax(0, 1fr); } .dailyNotes { grid-row: 1; } }

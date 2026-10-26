@@ -45,14 +45,18 @@ class ActivityImageTests {
 
     @Test void failedCleanupStaysQueuedAndRetriesWithoutDeletingReferencedFiles() throws Exception {
         var queue = mock(PhotoCleanupRepository.class); var records = mock(ActivityRecordRepository.class); var storage = mock(AttachmentStorage.class);
-        var service = new PhotoCleanupService(queue, records, storage);
+        var documents = mock(AeeDocumentRepository.class);
+        var service = new PhotoCleanupService(queue, records, storage, documents);
         var abandoned = new PhotoCleanup("pedagogical/abandoned.png", Instant.now().minusSeconds(1));
         var referenced = new PhotoCleanup("pedagogical/referenced.png", Instant.now().minusSeconds(1));
-        when(queue.findTop100ByEligibleAtBeforeOrderByEligibleAtAsc(any())).thenReturn(List.of(abandoned, referenced));
+        var pdf = new PhotoCleanup("aee/referenced.pdf", Instant.now().minusSeconds(1));
+        when(documents.existsByStorageKey(pdf.storageKey)).thenReturn(true);
+        when(queue.findTop100ByEligibleAtBeforeOrderByEligibleAtAsc(any())).thenReturn(List.of(abandoned, referenced, pdf));
         when(records.references(referenced.storageKey)).thenReturn(1L);
         doThrow(new IOException()).doNothing().when(storage).delete(abandoned.storageKey);
         service.clean();
         verify(queue, never()).delete(abandoned); verify(storage, never()).delete(referenced.storageKey);
+        verify(storage, never()).delete(pdf.storageKey);
         assertThat(abandoned.eligibleAt).isAfter(Instant.now());
         service.clean(); verify(queue).delete(abandoned);
     }

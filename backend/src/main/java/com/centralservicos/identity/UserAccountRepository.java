@@ -23,4 +23,23 @@ interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
     List<UUID> findActiveIdsWithAnyRole(Set<Role> roles);
 
     List<UserAccount> findAllByIdIn(Collection<UUID> ids);
+
+    interface CollaboratorProjection {
+        UUID getId();
+        String getDisplayName();
+        boolean getActive();
+    }
+    interface NameProjection {
+        UUID getId();
+        String getDisplayName();
+    }
+
+    // Scalar projections deliberately avoid hydrating roles/passwords for labels and selectors.
+    @Query("select u.id as id, u.displayName as displayName, u.active as active from UserAccount u where u.anonymized = false order by u.displayName, u.id")
+    List<CollaboratorProjection> findCollaborators();
+
+    @Query("select u.id as id, u.displayName as displayName from UserAccount u where u.id in :ids")
+    List<NameProjection> findNames(Collection<UUID> ids);
+
+    boolean existsByIdAndAnonymizedFalse(UUID id);
 }

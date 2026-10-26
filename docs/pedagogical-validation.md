@@ -1,5 +1,29 @@
 # Validação do módulo Pedagógico
 
+Para turmas marcadas como Atendimento Educacional Especial, seguir também [a validação por turma e aluno](aee-validation.md). Os cenários de compartilhamento abaixo usam turmas regulares.
+
+## Turmas compartilhadas
+
+1. Criar turma regular com duas professoras e visibilidade Compartilhada com o Pedagógico; verificar persistência ao reabrir o cadastro.
+2. Com uma terceira solicitante ativa e sem alocação, localizar a turma com indicador de somente consulta e abrir Planejamentos, Projetos e Registros, inclusive rascunhos, fotos e impressão.
+3. Verificar ausência das ações de criar, salvar, finalizar, reabrir, excluir e gerenciar para a leitora. Repetir as tentativas diretamente pela API, esperando 403.
+4. Remover a alocação da autora de um registro compartilhado: ela mantém consulta, mas perde edição/exclusão e recebe `canEdit=false`.
+5. Tornar a turma restrita e confirmar a revogação na próxima consulta à API, inclusive por URL direta de documento, foto e miniatura. Contas inativas ou sem perfil Pedagógico também não consultam.
+6. Arquivar a turma compartilhada: todos os usuários habilitados mantêm consulta; nenhuma pessoa altera conteúdo até reativar. ADMIN/MANAGER continuam podendo reativar.
+7. Verificar turma compartilhada sem alocações na listagem; turma compartilhada e alocada aparece uma única vez. Turmas existentes continuam restritas após a migration 012.
+
+Automação: `SharedClassTests` cobre autorização HTTP, listagem, compatibilidade do contrato, versões e revogação; os testes E2E de Pedagógico, Projetos e Registros cobrem configuração e consulta sem ações de escrita.
+
+### Resultado da alteração de visibilidade — 24/10/2026
+
+- Backend: `mvn -o verify` com JDK 25, 78 testes aprovados; inclui aplicação do changelog completo e teste de atualização de turmas existentes em H2. O Maven em modo offline não gera o SBOM.
+- Frontend: build aprovado e 24 testes unitários aprovados.
+- Navegador: 75 cenários aprovados nos arquivos `pedagogical.spec.ts`, `projects.spec.ts` e `records.spec.ts`, distribuídos entre Chromium desktop, Firefox tablet e WebKit celular. As APIs são simuladas nesses cenários; a autorização real é exercitada pelos testes HTTP Java.
+- A prévia com rolagem recebe foco pelo teclado e passou pela verificação de acessibilidade também no WebKit. Capturas do cadastro compartilhado e da consulta foram inspecionadas.
+- No Windows, o teste de exclusão de fotos fecha os streams antes de validar a limpeza e processa todos os lotes pendentes, evitando bloqueio dos arquivos abertos pelo próprio teste.
+- O Firefox foi executado com `PLAYWRIGHT_BROWSERS_PATH` apontando para `output/tooling/browsers`, pois a instalação do usuário falhou ao iniciar.
+- Matriz PostgreSQL/MySQL/Oracle/SQL Server não executada nesta sessão: daemon Docker indisponível. Executar antes da release, conforme `docs/operations.md`.
+
 ## Execução
 
 - Backend: Java 25, ./mvnw verify.

@@ -173,4 +173,6 @@ export type AgendaOccurrence = {
   version: number;
   createdAt: string;
   updatedAt: string;
+  collaboratorId?: string | null;
+  collaboratorName?: string | null;
 };

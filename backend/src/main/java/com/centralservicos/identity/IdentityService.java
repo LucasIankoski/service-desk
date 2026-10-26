@@ -62,6 +62,19 @@ public class IdentityService {
         return users.findAllByOrderByDisplayNameAsc(pageable).map(UserAccount::toView);
     }
 
+    public record CollaboratorView(UUID id, String displayName, boolean active) {}
+
+    @Transactional(readOnly = true)
+    public List<CollaboratorView> collaborators() {
+        return users.findCollaborators().stream()
+                .map(u -> new CollaboratorView(u.getId(), u.getDisplayName(), u.getActive())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean registeredCollaborator(UUID id) {
+        return users.existsByIdAndAnonymizedFalse(id);
+    }
+
     @Transactional(readOnly = true)
     public List<UUID> activeUserIdsWithAnyRole(Set<Role> roles) {
         return users.findActiveIdsWithAnyRole(roles);
@@ -81,7 +94,7 @@ public class IdentityService {
             return Map.of();
         }
         var names = new HashMap<UUID, String>();
-        users.findAllByIdIn(ids).forEach(user -> names.put(user.id(), user.displayName()));
+        users.findNames(ids).forEach(user -> names.put(user.getId(), user.getDisplayName()));
         return names;
     }
 

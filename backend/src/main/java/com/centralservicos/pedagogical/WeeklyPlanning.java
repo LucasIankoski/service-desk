@@ -7,6 +7,9 @@ import java.util.*;
 class WeeklyPlanning {
     @Id UUID id = UUID.randomUUID();
     UUID classId;
+    UUID studentId;
+    String scopeType = "CLASS";
+    UUID scopeId;
     LocalDate weekStart;
     String theme;
     String status = "DRAFT";
@@ -24,7 +27,7 @@ class WeeklyPlanning {
     Instant updatedAt = createdAt;
     protected WeeklyPlanning() {}
     WeeklyPlanning(UUID classId, LocalDate weekStart, UUID actor) {
-        this.classId = classId; this.weekStart = weekStart; this.createdById = actor;
+        this.classId = classId; this.scopeId = classId; this.weekStart = weekStart; this.createdById = actor;
     }
     void touch() { updatedAt = Instant.now(); }
 }

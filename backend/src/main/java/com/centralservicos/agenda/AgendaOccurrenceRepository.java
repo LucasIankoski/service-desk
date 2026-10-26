@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 interface AgendaOccurrenceRepository extends JpaRepository<AgendaOccurrence, UUID> {
-    @Query("select o from AgendaOccurrence o where o.occurrenceDate >= :start and o.occurrenceDate < :end "
+    @Query("select o from AgendaOccurrence o where o.kind = :kind and o.occurrenceDate >= :start and o.occurrenceDate < :end "
             + "order by o.occurrenceDate, o.createdAt, o.id")
-    List<AgendaOccurrence> findInPeriod(LocalDate start, LocalDate end);
+    List<AgendaOccurrence> findInPeriod(LocalDate start, LocalDate end, DailyNoteKind kind);
 }

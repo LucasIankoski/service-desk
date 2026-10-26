@@ -12,7 +12,7 @@ import { Button } from "../components/Button";
 import { Field, SelectInput, TextInput } from "../components/FormField";
 import { defaultAgendaPeriod, periodFieldsFromInstants, shiftLabels } from "../components/agendaDateTime";
 import { useSession } from "../hooks/useSession";
-import { TaskOccurrencesPanel } from "../components/TaskOccurrencesPanel";
+import { TaskDailyNotesPanel } from "../components/TaskOccurrencesPanel";
 import styles from "./TasksPage.module.css";
 
 export default function TasksPage() {
@@ -135,7 +135,10 @@ export default function TasksPage() {
         {!agenda.isLoading && !agenda.error && !visible.length ? <p className={styles.empty}>{items.length ? "Nenhuma tarefa corresponde aos filtros." : daily ? "Nenhuma tarefa neste dia. Crie uma tarefa para começar." : "Nenhuma tarefa neste mês. Crie uma tarefa para começar."}</p> : null}
       </div>
     </div>
-    <TaskOccurrencesPanel key={month} month={month} timeZone={timeZone} />
+    <div className={styles.dailyNotes}>
+      <TaskDailyNotesPanel key={`commitments-${month}`} kind="commitments" month={month} timeZone={timeZone} />
+      <TaskDailyNotesPanel key={`occurrences-${month}`} kind="occurrences" month={month} timeZone={timeZone} />
+    </div>
     </div>
     <ItemDetails key={selectedId ?? "closed"} item={items.find((item) => item.id === selectedId)} isManager timeZone={timeZone} onClose={() => setSelectedId(undefined)} onEdit={edit} onChanged={refresh} onDeleted={() => { refresh(); setSelectedId(undefined); }} />
     {editor ? <ItemEditor taskMode state={editor} managers={managers.data ?? []} timeZone={timeZone} onClose={() => setEditor(undefined)} onSaved={() => { refresh(); setEditor(undefined); }} /> : null}

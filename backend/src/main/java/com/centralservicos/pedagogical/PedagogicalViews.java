@@ -6,9 +6,18 @@ import java.util.*;
 public final class PedagogicalViews {
     private PedagogicalViews() {}
     public record Teacher(UUID id, String displayName) {}
-    public record ClassView(UUID id, String name, boolean archived, List<Teacher> teachers, long version) {}
+    public record ClassView(UUID id, String name, boolean archived, List<Teacher> teachers, long version,
+                            ClassContentVisibility contentVisibility, boolean canCreate, boolean canEdit, boolean canManage, boolean aee) {}
     public record ClassInput(@NotBlank @Size(max=120) String name, boolean archived,
-                             @NotNull @Size(max=100) List<@NotNull UUID> teacherIds, Long version) {}
+                             @NotNull @Size(max=100) List<@NotNull UUID> teacherIds, Long version,
+                             ClassContentVisibility contentVisibility, Boolean aee) {
+        public ClassInput(String name, boolean archived, List<UUID> teacherIds, Long version, ClassContentVisibility contentVisibility) {
+            this(name,archived,teacherIds,version,contentVisibility,null);
+        }
+        public ClassInput(String name, boolean archived, List<UUID> teacherIds, Long version) {
+            this(name, archived, teacherIds, version, null,null);
+        }
+    }
     public record DayInput(boolean noClass, @Size(max=4000) String reason,
                            @Size(max=10000) String proposal, @Size(max=10000) String objectives,
                            @Size(max=10000) String development, @Size(max=10000) String resources) {}
