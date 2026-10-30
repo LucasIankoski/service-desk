@@ -1,6 +1,6 @@
 # Validação do módulo Pedagógico
 
-Para turmas marcadas como Atendimento Educacional Especial, seguir também [a validação por turma e aluno](aee-validation.md). Os cenários de compartilhamento abaixo usam turmas regulares.
+Para turmas marcadas como Atendimento Educacional Especializado, seguir também [a validação por turma e aluno](aee-validation.md). Os cenários de compartilhamento abaixo usam turmas regulares.
 
 ## Turmas compartilhadas
 

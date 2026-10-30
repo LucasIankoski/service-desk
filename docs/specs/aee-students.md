@@ -1,4 +1,4 @@
-# Atendimento Educacional Especial por turma e aluno
+# Atendimento Educacional Especializado por turma e aluno
 
 A turma com `aee=true` é a entrada para AEE → turma regular → aluno → Planejamento Pedagógico, Projetos, Registros e Documentos. O cadastro administrativo de turma oferece essa opção na criação e edição. Turmas existentes recebem `false` na migração 015. Omitir o campo na edição preserva seu valor.
 

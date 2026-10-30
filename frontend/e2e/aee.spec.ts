@@ -66,9 +66,9 @@ test("cadastro permite marcar AEE e a entrada exibe turmas restritas sem alunos"
   await setup(page, true);
   await page.goto("/pedagogico");
   await page.getByRole("button", { name: "Nova turma", exact: true }).click();
-  await expect(page.getByLabel("Atendimento Educacional Especial", { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel("Atendimento Educacional Especializado", { exact: true })).not.toBeChecked();
   await page.getByLabel("Nome da turma", { exact: true }).fill("AEE novo");
-  await page.getByLabel("Atendimento Educacional Especial", { exact: true }).check();
+  await page.getByLabel("Atendimento Educacional Especializado", { exact: true }).check();
   await page.getByRole("button", { name: "Salvar turma", exact: true }).click();
   await expect(page.getByRole("button", { name: "Salvar turma", exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Atendimento Especial", exact: true }).click();

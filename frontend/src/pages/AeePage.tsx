@@ -17,7 +17,7 @@ export function AeeDirectory({ id, classroom }: { id: string; classroom: SchoolC
   const legacy = classroom.contentVisibility === "PEDAGOGICAL_READ_ONLY" || classroom.canManage || classroom.teachers.some(t => t.id === session.data?.id);
   return <>
     <nav aria-label="Diretórios"><Link to="/pedagogico">Turmas</Link> / {classroom.name}</nav>
-    <h3>{classroom.name} · Atendimento Educacional Especial</h3>
+    <h3>{classroom.name} · Atendimento Educacional Especializado</h3>
     <p>Selecione a turma regular para consultar os alunos atendidos neste AEE.</p>
     {classroom.archived && <p>AEE arquivado. Conteúdos disponíveis somente para consulta.</p>}
     <label className={styles.check}><input type="checkbox" checked={archived} onChange={e => setArchived(e.target.checked)} />Incluir turmas arquivadas</label>
@@ -34,7 +34,7 @@ export default function AeePage() {
   const { aeeId, classId, studentId } = useParams();
   const session = useSession();
   if (studentId) return <section className={styles.page}>
-    <nav aria-label="Navegação do aluno"><Link to={`/pedagogico/turmas/${aeeId}`}>Atendimento Educacional Especial</Link> / <Link to={`/pedagogico/turmas/${aeeId}/turmas/${classId}/alunos`}>Alunos</Link></nav>
+    <nav aria-label="Navegação do aluno"><Link to={`/pedagogico/turmas/${aeeId}`}>Atendimento Educacional Especializado</Link> / <Link to={`/pedagogico/turmas/${aeeId}/turmas/${classId}/alunos`}>Alunos</Link></nav>
     <PlanningFolder key={studentId} id={classId!} admin={!!session.data?.roles.some(r => r === "ADMIN" || r === "MANAGER")} />
   </section>;
   return <Students aeeId={aeeId!} classId={classId!} />;

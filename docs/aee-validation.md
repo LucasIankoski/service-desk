@@ -1,4 +1,4 @@
-# Validação do Atendimento Educacional Especial
+# Validação do Atendimento Educacional Especializado
 
 ## Matriz funcional
 

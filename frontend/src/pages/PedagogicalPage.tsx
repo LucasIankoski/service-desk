@@ -45,7 +45,7 @@ function Classes({ admin }: { admin: boolean }) {
       <header className={styles.classCardHeading}><Folder aria-hidden /><h3><Link to={"/pedagogico/turmas/" + c.id}>{c.name}</Link></h3></header>
       <div className={styles.classCardBody}>
       <p>{c.teachers.map(t => t.displayName).join(", ") || "Nenhuma professora alocada"}</p>
-      <span>{c.archived ? "Arquivada · consulta" : c.aee ? "Atendimento Educacional Especial" : "Turma ativa"}</span>
+      <span>{c.archived ? "Arquivada · consulta" : c.aee ? "Atendimento Educacional Especializado" : "Turma ativa"}</span>
       {c.contentVisibility === "PEDAGOGICAL_READ_ONLY" && <span>{c.canEdit ? "Compartilhada com o Pedagógico" : "Compartilhada · somente consulta"}</span>}
       {c.canManage && <Button icon={<Settings />} onClick={() => setEditing(c)}>Gerenciar turma</Button>}
       </div>
@@ -77,7 +77,7 @@ function ClassEditor({ row, onClose }: { row?: SchoolClass; onClose: () => void 
       {teachers.error && <p role="alert">{teachers.error.message}</p>}
       {teachers.data?.length === 0 && <p>Cadastre usuários ativos com perfil Solicitante para alocá-los.</p>}
     </fieldset>
-    <label className={styles.check}><input type="checkbox" checked={aee} disabled={!!row?.archived && archived} onChange={e => setAee(e.target.checked)} />Atendimento Educacional Especial</label>
+    <label className={styles.check}><input type="checkbox" checked={aee} disabled={!!row?.archived && archived} onChange={e => setAee(e.target.checked)} />Atendimento Educacional Especializado</label>
     <label>Visibilidade do conteúdo<select value={contentVisibility} disabled={!!row?.archived && archived} onChange={e => setContentVisibility(e.target.value as ClassContentVisibility)} aria-describedby="class-visibility-help">
       <option value="ALLOCATED_ONLY">Restrita às professoras alocadas</option>
       <option value="PEDAGOGICAL_READ_ONLY">Compartilhada com o Pedagógico</option>

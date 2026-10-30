@@ -747,7 +747,7 @@ components:
       - canManage
       - aee
       properties:
-        aee: { type: boolean, description: "Atendimento Educacional Especial. Padrão false na criação; omissão preserva na edição. Vínculos de alunos impedem alteração do tipo." }
+        aee: { type: boolean, description: "Atendimento Educacional Especializado. Padrão false na criação; omissão preserva na edição. Vínculos de alunos impedem alteração do tipo." }
         id:
           type: string
           format: uuid
@@ -782,7 +782,7 @@ components:
       - name
       - teacherIds
       properties:
-        aee: { type: [boolean, "null"], description: "Atendimento Educacional Especial. Padrão false na criação; omissão preserva na edição. Vínculos de alunos impedem alteração do tipo." }
+        aee: { type: [boolean, "null"], description: "Atendimento Educacional Especializado. Padrão false na criação; omissão preserva na edição. Vínculos de alunos impedem alteração do tipo." }
         name:
           type: string
           minLength: 1

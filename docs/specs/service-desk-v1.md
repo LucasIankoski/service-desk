@@ -1,7 +1,7 @@
 # Especificação — Central de Serviços v1
 
 Complemento: [Registros gerais de eventos e Compromissos](event-records-daily-commitments.md).
-Complemento: [Atendimento Educacional Especial por turma e aluno](aee-students.md).
+Complemento: [Atendimento Educacional Especializado por turma e aluno](aee-students.md).
 
 ## Objetivo
 

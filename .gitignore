@@ -30,3 +30,9 @@ coverage/
 *.log
 architecture-review-*.html
 frontend/public/pdfjs/
+
+#Infra
+infra/
+
+docs e specs
+docs/
