@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.Comparator;
+import java.util.EnumSet;
 
 @Service
 public class IdentityService {
@@ -59,7 +60,16 @@ public class IdentityService {
 
     @Transactional(readOnly = true)
     public Page<UserView> list(Pageable pageable) {
-        return users.findAllByOrderByDisplayNameAsc(pageable).map(UserAccount::toView);
+        var page = users.findUserPage(pageable);
+        var roles = new HashMap<UUID, Set<Role>>();
+        if (!page.isEmpty()) {
+            var ids = page.getContent().stream().map(UserAccountRepository.UserListProjection::getId).toList();
+            users.findSupportedRoles(ids, EnumSet.allOf(Role.class)).forEach(row ->
+                    roles.computeIfAbsent(row.getUserId(), ignored -> EnumSet.noneOf(Role.class)).add(row.getRole()));
+        }
+        return page.map(user -> new UserView(user.getId(), user.getEmail(), user.getDisplayName(),
+                Set.copyOf(roles.getOrDefault(user.getId(), Set.of())), user.getActive(),
+                user.getPasswordChangeRequired(), user.getAnonymized(), user.getCreatedAt()));
     }
 
     public record CollaboratorView(UUID id, String displayName, boolean active) {}

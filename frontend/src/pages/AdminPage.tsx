@@ -2,7 +2,7 @@ import { SchoolLogoSettings } from "../components/SchoolLogoSettings";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, KeyRound, MailCheck, Palette, Plus, RotateCcw, Shield, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate } from "react-router";
 import {
@@ -65,7 +65,13 @@ export default function AdminPage() {
 
 function UsersTab() {
   const queryClient = useQueryClient();
-  const users = useQuery({ queryKey: ["admin-users"], queryFn: () => listUsers() });
+  const [page, setPage] = useState(0);
+  const users = useQuery({ queryKey: ["admin-users", page], queryFn: () => listUsers(page) });
+  const lastPage = users.data ? Math.max(0, users.data.totalPages - 1) : page;
+  const pageData = page <= lastPage ? users.data : undefined;
+  useEffect(() => {
+    if (page > lastPage) setPage(lastPage);
+  }, [page, lastPage]);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: createUser,
@@ -117,8 +123,17 @@ function UsersTab() {
         <Button type="submit" variant="primary" icon={<Plus />}>Criar usuário</Button>
       </form>
       {temporaryPassword ? <p className={styles.secret}>Senha temporária: <code>{temporaryPassword}</code></p> : null}
-      <div className={styles.table}>
-        {users.data?.content.map((user) => (
+      {users.isFetching || page > lastPage ? <p className={styles.state} role="status">Carregando usuários.</p> : null}
+      {users.error ? (
+        <div className={styles.actionRow}>
+          <p className={styles.error} role="alert">{users.error.message}</p>
+          <Button type="button" disabled={users.isFetching} onClick={() => void users.refetch()}>Tentar novamente</Button>
+        </div>
+      ) : null}
+      {pageData?.totalElements === 0 ? <p className={styles.state}>Nenhum usuário cadastrado.</p> : null}
+      {pageData ? <p className={styles.state} role="status">Total de usuários: {pageData.totalElements}</p> : null}
+      <div className={styles.table} aria-busy={users.isFetching}>
+        {pageData?.content.map((user) => (
           <UserEditor
             key={user.id}
             user={user}
@@ -133,6 +148,21 @@ function UsersTab() {
           />
         ))}
       </div>
+      {page > 0 || (pageData && pageData.totalPages > 1) ? (
+        <nav className={styles.pagination} aria-label="Paginação de usuários">
+          <Button type="button" disabled={page === 0 || users.isFetching} onClick={() => setPage((current) => current - 1)}>
+            Anterior
+          </Button>
+          <span aria-live="polite">Página {page + 1}{pageData ? ` de ${pageData.totalPages}` : ""}</span>
+          <Button
+            type="button"
+            disabled={users.isFetching || !pageData || page + 1 >= pageData.totalPages}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Próxima
+          </Button>
+        </nav>
+      ) : null}
       {create.error || update.error || reset.error || anonymize.error ? (
         <p className={styles.error} role="alert">
           {(create.error ?? update.error ?? reset.error ?? anonymize.error)?.message}

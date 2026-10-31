@@ -10,11 +10,35 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.time.Instant;
 
 interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
     Optional<UserAccount> findByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCase(String email);
-    Page<UserAccount> findAllByOrderByDisplayNameAsc(Pageable pageable);
+    interface UserListProjection {
+        UUID getId();
+        String getEmail();
+        String getDisplayName();
+        boolean getActive();
+        boolean getPasswordChangeRequired();
+        boolean getAnonymized();
+        Instant getCreatedAt();
+    }
+
+    interface UserRoleProjection {
+        UUID getUserId();
+        Role getRole();
+    }
+
+    // Keep legacy role names out of enum hydration, without changing stored permissions.
+    @Query(value = "select u.id as id, u.email as email, u.displayName as displayName, "
+            + "u.active as active, u.passwordChangeRequired as passwordChangeRequired, "
+            + "u.anonymized as anonymized, u.createdAt as createdAt from UserAccount u order by u.displayName, u.id",
+            countQuery = "select count(u) from UserAccount u")
+    Page<UserListProjection> findUserPage(Pageable pageable);
+
+    @Query("select u.id as userId, r as role from UserAccount u join u.roles r where u.id in :ids and r in :roles")
+    List<UserRoleProjection> findSupportedRoles(Collection<UUID> ids, Set<Role> roles);
 
     @Query("select count(distinct u) from UserAccount u join u.roles r where u.active = true and r = :role")
     long countActiveWithRole(Role role);
