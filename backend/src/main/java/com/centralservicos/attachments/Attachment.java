@@ -9,6 +9,8 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 import java.util.UUID;
+import jakarta.persistence.Column;
+import org.hibernate.annotations.TenantId;
 
 @Entity
 @Table(name = "attachment")
@@ -16,6 +18,9 @@ class Attachment {
 
     @Id
     private UUID id;
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    private UUID unitId;
     private UUID ticketId;
     private UUID commentId;
     private UUID uploadedBy;

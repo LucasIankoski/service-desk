@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router";
 import { z } from "zod";
+import { withUnit } from "../api/http";
 import { addComment, assignTicket, classifyTicket, getTicket, listAssignees, listCategories, updateStatus } from "../api/tickets";
 import type { CommentVisibility, TicketStatus } from "../api/types";
 import { Badge } from "../components/Badge";
@@ -85,7 +86,7 @@ export default function TicketDetailPage() {
             {ticket.data.attachments.length ? (
               <div className={styles.attachments}>
                 {ticket.data.attachments.map((file) => (
-                  <a key={file.id} href={`/api/v1/tickets/attachments/${file.id}`}>
+                  <a key={file.id} href={withUnit(`/api/v1/tickets/attachments/${file.id}`)}>
                     <Download /> {file.originalName}
                   </a>
                 ))}
@@ -104,7 +105,7 @@ export default function TicketDetailPage() {
                 </div>
                 <p>{comment.body}</p>
                 {comment.attachments.map((file) => (
-                  <a key={file.id} href={`/api/v1/tickets/attachments/${file.id}`}><Download /> {file.originalName}</a>
+                  <a key={file.id} href={withUnit(`/api/v1/tickets/attachments/${file.id}`)}><Download /> {file.originalName}</a>
                 ))}
               </article>
             )) : <p className={styles.state}>Ainda não há comentários.</p>}

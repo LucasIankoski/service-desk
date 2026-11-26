@@ -6,12 +6,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -21,10 +24,10 @@ class IdentityServiceTests {
     void acceptsPasswordWithEightCharacters() {
         var users = mock(UserAccountRepository.class);
         var encoder = mock(PasswordEncoder.class);
-        var account = new UserAccount("user@example.test", "User", "old-hash", Set.of(Role.REQUESTER));
+        var account = new UserAccount("user@example.test", "User", "old-hash", false, Map.of(UUID.randomUUID(), Set.of(Role.REQUESTER)));
         when(users.findById(account.id())).thenReturn(Optional.of(account));
         when(encoder.encode("12345678")).thenReturn("new-hash");
-        var identity = new IdentityService(users, mock(PasswordResetTokenRepository.class), encoder,
+        var identity = new IdentityService(users, mock(UnitRepository.class), mock(PasswordResetTokenRepository.class), encoder,
                 mock(AuditService.class), mock(ApplicationEventPublisher.class));
 
         identity.changePassword(account.id(), "12345678");
@@ -35,7 +38,7 @@ class IdentityServiceTests {
 
     @Test
     void rejectsPasswordWithFewerThanEightCharacters() {
-        var identity = new IdentityService(mock(UserAccountRepository.class),
+        var identity = new IdentityService(mock(UserAccountRepository.class), mock(UnitRepository.class),
                 mock(PasswordResetTokenRepository.class), mock(PasswordEncoder.class), mock(AuditService.class),
                 mock(ApplicationEventPublisher.class));
 
@@ -47,14 +50,17 @@ class IdentityServiceTests {
     @Test
     void soleActiveAdministratorCannotLoseAdministrativeAccess() {
         var users = mock(UserAccountRepository.class);
-        var account = new UserAccount("admin@example.test", "Administrator", "hash", Set.of(Role.ADMIN));
+        var account = new UserAccount("admin@example.test", "Administrator", "hash", true, Map.of());
         when(users.findById(account.id())).thenReturn(Optional.of(account));
         when(users.countActiveWithRole(Role.ADMIN)).thenReturn(1L);
-        var identity = new IdentityService(users, mock(PasswordResetTokenRepository.class),
+        var units = mock(UnitRepository.class);
+        var unit = new Unit("SD", "Sede", null, null);
+        when(units.findAllById(any())).thenReturn(List.of(unit));
+        var identity = new IdentityService(users, units, mock(PasswordResetTokenRepository.class),
                 mock(PasswordEncoder.class), mock(AuditService.class), mock(ApplicationEventPublisher.class));
 
-        assertThatThrownBy(() -> identity.update(account.id(), "Administrator", Set.of(Role.REQUESTER),
-                true, account.id()))
+        assertThatThrownBy(() -> identity.update(account.id(), "Administrator", false,
+                Map.of(unit.id(), Set.of(Role.REQUESTER)), true, account.id()))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("administrador ativo");
     }

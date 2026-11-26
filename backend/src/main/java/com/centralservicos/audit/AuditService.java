@@ -1,6 +1,7 @@
 package com.centralservicos.audit;
 
 import com.centralservicos.shared.CorrelationIdFilter;
+import com.centralservicos.shared.TenantContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,7 @@ public class AuditService {
         var correlationId = attributes instanceof ServletRequestAttributes servletAttributes
                 ? (String) servletAttributes.getRequest().getAttribute(CorrelationIdFilter.ATTRIBUTE)
                 : null;
-        repository.save(new AuditEvent(actorId, action, entityType,
+        repository.save(new AuditEvent(actorId, TenantContext.unitId().orElse(null), action, entityType,
                 entityId == null ? null : entityId.toString(), safeDetails, correlationId));
     }
 

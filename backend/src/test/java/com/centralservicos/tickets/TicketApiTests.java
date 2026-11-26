@@ -1,5 +1,6 @@
 package com.centralservicos.tickets;
 
+import com.centralservicos.TestUnits;
 import com.centralservicos.identity.AuthenticatedUser;
 import com.centralservicos.identity.IdentityService;
 import com.centralservicos.identity.Role;
@@ -82,7 +83,7 @@ class TicketApiTests {
                     .contentType(MediaType.APPLICATION_JSON).content("{}"))
                     .andExpect(status().is4xxClientError());
         }
-        assertThat(notifications.list(agent.id(), Pageable.unpaged()).getContent())
+        assertThat(notifications.list(agent.id(), Set.of(TestUnits.DEFAULT_UNIT_ID), Pageable.unpaged()).getContent())
                 .anySatisfy(notification -> {
                     assertThat(notification.ticketId()).isEqualTo(ticket.id());
                     assertThat(notification.message()).isEqualTo(first.name());

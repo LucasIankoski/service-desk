@@ -5,11 +5,15 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.time.*;
 import java.util.*;
+import org.hibernate.annotations.TenantId;
 
 @Entity
 @Table(name="ped_project")
 class PedagogicalProject {
     @Id UUID id = UUID.randomUUID();
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    UUID unitId;
     UUID classId;
     UUID studentId;
     String title;

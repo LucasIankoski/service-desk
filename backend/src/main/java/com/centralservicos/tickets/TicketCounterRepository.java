@@ -6,10 +6,11 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.Optional;
+import java.util.UUID;
 
-interface TicketCounterRepository extends JpaRepository<TicketCounter, Integer> {
+interface TicketCounterRepository extends JpaRepository<TicketCounter, TicketCounter.Key> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select c from TicketCounter c where c.counterYear = :year")
-    Optional<TicketCounter> lockByYear(int year);
+    @Query("select c from TicketCounter c where c.unitId = :unitId and c.counterYear = :year")
+    Optional<TicketCounter> lock(UUID unitId, int year);
 }

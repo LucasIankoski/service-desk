@@ -13,12 +13,16 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.hibernate.annotations.TenantId;
 
 @Entity
 @Table(name = "agenda_occurrence")
 class AgendaOccurrence {
     @Id
     private UUID id;
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    private UUID unitId;
     private LocalDate occurrenceDate;
     @Enumerated(EnumType.STRING)
     @Column(name = "kind_name", nullable = false, length = 32)

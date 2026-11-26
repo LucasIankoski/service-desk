@@ -1,6 +1,7 @@
 package com.centralservicos.notifications;
 
 import com.centralservicos.shared.DomainException;
+import com.centralservicos.shared.TenantContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,9 +26,11 @@ public class NotificationService {
         if (users == null || users.isEmpty()) {
             return;
         }
+        var unitId = TenantContext.requiredUnitId();
         new LinkedHashSet<>(users).stream()
                 .filter(userId -> userId != null)
-                .map(userId -> new Notification(userId, ticketId, type, truncate(title, 160), truncate(message, 500)))
+                .map(userId -> new Notification(userId, unitId, ticketId, type, truncate(title, 160),
+                        truncate(message, 500)))
                 .forEach(repository::save);
     }
 
@@ -37,13 +40,16 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<NotificationView> list(UUID userId, Pageable pageable) {
-        return repository.findAllByUserIdOrderByCreatedAtDesc(userId, pageable).map(Notification::toView);
+    public Page<NotificationView> list(UUID userId, Collection<UUID> unitIds, Pageable pageable) {
+        if (unitIds.isEmpty()) return Page.empty(pageable);
+        return repository.findAllByUserIdAndUnitIdInOrderByCreatedAtDesc(userId, unitIds, pageable)
+                .map(Notification::toView);
     }
 
     @Transactional(readOnly = true)
-    public long unreadCount(UUID userId) {
-        return repository.countByUserIdAndReadAtIsNull(userId);
+    public long unreadCount(UUID userId, Collection<UUID> unitIds) {
+        if (unitIds.isEmpty()) return 0;
+        return repository.countByUserIdAndUnitIdInAndReadAtIsNull(userId, unitIds);
     }
 
     @Transactional
@@ -57,8 +63,9 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAllRead(UUID userId) {
-        repository.findAllByUserIdAndReadAtIsNull(userId).forEach(Notification::markRead);
+    public void markAllRead(UUID userId, Collection<UUID> unitIds) {
+        if (unitIds.isEmpty()) return;
+        repository.findAllByUserIdAndUnitIdInAndReadAtIsNull(userId, unitIds).forEach(Notification::markRead);
     }
 
     private String truncate(String value, int max) {

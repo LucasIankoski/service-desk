@@ -1,5 +1,6 @@
 package com.centralservicos.identity;
 
+import com.centralservicos.shared.TenantContext;
 import com.centralservicos.shared.DomainException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -65,8 +66,9 @@ class AuthController {
             SecurityContextHolder.setContext(context);
             contextRepository.saveContext(context, request, response);
             attempts.succeeded(login.email());
-            identity.recordAuthentication(((AuthenticatedUser) authentication.getPrincipal()).id(), "LOGIN_SUCCEEDED");
-            return MeResponse.from((AuthenticatedUser) authentication.getPrincipal());
+            var authenticated = (AuthenticatedUser) authentication.getPrincipal();
+            identity.recordAuthentication(authenticated.id(), "LOGIN_SUCCEEDED");
+            return MeResponse.from(identity.session(authenticated.id(), requestedUnit(request)));
         } catch (AuthenticationException exception) {
             attempts.failed(login.email());
             identity.recordAuthentication(null, "LOGIN_FAILED");
@@ -85,7 +87,7 @@ class AuthController {
 
     @GetMapping("/me")
     MeResponse me() {
-        return MeResponse.from(currentUser.required());
+        return MeResponse.from(identity.session(currentUser.id(), TenantContext.unitId().orElse(null)));
     }
 
     @PostMapping("/password/change")
@@ -112,11 +114,28 @@ class AuthController {
     record ResetPasswordRequest(@NotBlank String token,
                                 @NotBlank @Size(min = 8, max = 128) String password) { }
 
+    private static java.util.UUID requestedUnit(HttpServletRequest request) {
+        var raw = request.getHeader(AccountStateFilter.UNIT_HEADER);
+        try {
+            return raw == null || raw.isBlank() ? null : java.util.UUID.fromString(raw.trim());
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    /**
+     * @param roles perfis efetivos na unidade ativa
+     * @param admin administrador da rede
+     * @param activeUnitId unidade ativa; {@code null} quando o usuário precisa escolher uma
+     * @param units unidades disponíveis para o usuário
+     */
     record MeResponse(java.util.UUID id, String email, String displayName, java.util.Set<Role> roles,
-                      boolean passwordChangeRequired) {
-        static MeResponse from(AuthenticatedUser user) {
+                      boolean passwordChangeRequired, boolean admin, java.util.UUID activeUnitId,
+                      java.util.List<UnitSession.UnitAccess> units) {
+        static MeResponse from(UnitSession session) {
+            var user = session.principal();
             return new MeResponse(user.id(), user.email(), user.displayName(), user.roles(),
-                    user.passwordChangeRequired());
+                    user.passwordChangeRequired(), session.admin(), session.activeUnitId(), session.units());
         }
     }
 }

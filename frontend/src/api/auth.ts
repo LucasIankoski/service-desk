@@ -1,15 +1,23 @@
-import { apiFetch, clearCsrf } from "./http";
+import { apiFetch, clearCsrf, setActiveUnit } from "./http";
 import type { Me } from "./types";
 
-export function getMe() {
-  return apiFetch<Me>("/api/v1/auth/me");
+/** Usa a unidade que o servidor confirmou; uma unidade sem acesso volta para a disponível. */
+function syncUnit(me: Me) {
+  if (me.units) {
+    setActiveUnit(me.activeUnitId ?? null);
+  }
+  return me;
 }
 
-export function login(email: string, password: string) {
-  return apiFetch<Me>("/api/v1/auth/session", {
+export async function getMe() {
+  return syncUnit(await apiFetch<Me>("/api/v1/auth/me"));
+}
+
+export async function login(email: string, password: string) {
+  return syncUnit(await apiFetch<Me>("/api/v1/auth/session", {
     method: "POST",
     body: JSON.stringify({ email, password })
-  });
+  }));
 }
 
 export async function logout() {

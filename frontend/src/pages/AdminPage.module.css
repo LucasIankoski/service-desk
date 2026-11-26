@@ -154,6 +154,53 @@
   font-weight: 700;
 }
 
+.accessEditor {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.adminToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.unitRoles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.unitRoles legend {
+  padding: 0 4px;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.unitRoles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.unitRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.8fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
 .backgroundEditor {
   padding-top: 14px;
   border-top: 1px solid var(--color-border);
@@ -279,7 +326,8 @@
   .threeCols,
   .swatches,
   .row,
-  .userRow {
+  .userRow,
+  .unitRow {
     grid-template-columns: 1fr;
   }
 

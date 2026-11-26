@@ -1,5 +1,6 @@
 package com.centralservicos.pedagogical;
 
+import com.centralservicos.shared.TenantContext;
 import com.centralservicos.attachments.*;
 import com.centralservicos.identity.AuthenticatedUser;
 import com.centralservicos.audit.AuditService;
@@ -165,7 +166,7 @@ class ActivityRecordService {
         var added = new ArrayList<ActivityPhoto>();
         // Decode and validate the entire batch before writing any files or modifying the album.
         for (var image : prepared) {
-            var photoId = UUID.randomUUID(); var prefix = (record.classId == null ? "records/" : "pedagogical/") + record.id + "/" + photoId;
+            var photoId = UUID.randomUUID(); var prefix = "units/" + TenantContext.requiredUnitId() + "/" + (record.classId == null ? "records/" : "pedagogical/") + record.id + "/" + photoId;
             var original = prefix + extension(image.mediaType()); var thumbnail = prefix + "-thumb.jpg";
             cleanup.stage(List.of(original, thumbnail));
             try { storage.store(original, image.original()); storage.store(thumbnail, image.thumbnail()); }

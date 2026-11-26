@@ -34,18 +34,50 @@ export type ProblemDetail = {
   errors?: Record<string, string>;
 };
 
+export type UnitRoles = {
+  unitId: string;
+  roles: Role[];
+};
+
 export type User = {
   id: string;
   email: string;
   displayName: string;
+  /** Perfis efetivos na unidade ativa, com ADMIN incluído. */
   roles: Role[];
   active: boolean;
   passwordChangeRequired: boolean;
   anonymized: boolean;
   createdAt: string;
+  /** Administrador da rede, com acesso a todas as unidades. */
+  admin?: boolean;
+  units?: UnitRoles[];
 };
 
-export type Me = Pick<User, "id" | "email" | "displayName" | "roles" | "passwordChangeRequired">;
+export type UnitAccess = {
+  id: string;
+  code: string;
+  name: string;
+  roles: Role[];
+};
+
+export type Unit = {
+  id: string;
+  code: string;
+  name: string;
+  supportEmail?: string | null;
+  supportPhone?: string | null;
+  active: boolean;
+  version: number;
+  createdAt: string;
+};
+
+export type Me = Pick<User, "id" | "email" | "displayName" | "roles" | "passwordChangeRequired"> & {
+  admin?: boolean;
+  /** Unidade ativa; vazio quando o usuário precisa escolher uma. */
+  activeUnitId?: string | null;
+  units?: UnitAccess[];
+};
 
 export type Assignee = Pick<User, "id" | "displayName">;
 
@@ -136,6 +168,7 @@ export type TicketDetail = TicketSummary & {
 
 export type Notification = {
   id: string;
+  unitId?: string | null;
   ticketId?: string | null;
   type: NotificationType;
   title: string;

@@ -30,6 +30,12 @@ interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
         Role getRole();
     }
 
+    interface MembershipProjection {
+        UUID getUserId();
+        UUID getUnitId();
+        Role getRole();
+    }
+
     // Keep legacy role names out of enum hydration, without changing stored permissions.
     @Query(value = "select u.id as id, u.email as email, u.displayName as displayName, "
             + "u.active as active, u.passwordChangeRequired as passwordChangeRequired, "
@@ -40,11 +46,19 @@ interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
     @Query("select u.id as userId, r as role from UserAccount u join u.roles r where u.id in :ids and r in :roles")
     List<UserRoleProjection> findSupportedRoles(Collection<UUID> ids, Set<Role> roles);
 
+    @Query("select u.id as userId, m.unitId as unitId, m.role as role from UserAccount u join u.memberships m "
+            + "where u.id in :ids")
+    List<MembershipProjection> findMemberships(Collection<UUID> ids);
+
     @Query("select count(distinct u) from UserAccount u join u.roles r where u.active = true and r = :role")
     long countActiveWithRole(Role role);
 
     @Query("select distinct u.id from UserAccount u join u.roles r where u.active = true and r in :roles")
     List<UUID> findActiveIdsWithAnyRole(Set<Role> roles);
+
+    @Query("select distinct u.id from UserAccount u join u.memberships m "
+            + "where u.active = true and m.unitId = :unitId and m.role in :roles")
+    List<UUID> findActiveMemberIds(UUID unitId, Set<Role> roles);
 
     List<UserAccount> findAllByIdIn(Collection<UUID> ids);
 
@@ -59,11 +73,18 @@ interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
     }
 
     // Scalar projections deliberately avoid hydrating roles/passwords for labels and selectors.
-    @Query("select u.id as id, u.displayName as displayName, u.active as active from UserAccount u where u.anonymized = false order by u.displayName, u.id")
-    List<CollaboratorProjection> findCollaborators();
+    // Colaboradores da unidade: os vinculados a ela e os administradores da rede.
+    @Query("select u.id as id, u.displayName as displayName, u.active as active from UserAccount u "
+            + "where u.anonymized = false and (exists (select 1 from UserAccount x join x.memberships m "
+            + "where x.id = u.id and m.unitId = :unitId) or exists (select 1 from UserAccount y join y.roles r "
+            + "where y.id = u.id and r = :admin)) order by u.displayName, u.id")
+    List<CollaboratorProjection> findUnitCollaborators(UUID unitId, Role admin);
 
     @Query("select u.id as id, u.displayName as displayName from UserAccount u where u.id in :ids")
     List<NameProjection> findNames(Collection<UUID> ids);
 
-    boolean existsByIdAndAnonymizedFalse(UUID id);
+    @Query("select (count(u) > 0) from UserAccount u where u.id = :id and u.anonymized = false "
+            + "and (exists (select 1 from UserAccount x join x.memberships m where x.id = u.id and m.unitId = :unitId) "
+            + "or exists (select 1 from UserAccount y join y.roles r where y.id = u.id and r = :admin))")
+    boolean existsUnitCollaborator(UUID id, UUID unitId, Role admin);
 }

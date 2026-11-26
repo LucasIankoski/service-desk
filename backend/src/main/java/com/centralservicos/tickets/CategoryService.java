@@ -49,6 +49,14 @@ public class CategoryService {
     }
 
     @Transactional
+    CategoryView createIfMissing(String name, UUID actorId) {
+        if (repository.existsByNameIgnoreCase(name.trim())) {
+            return null;
+        }
+        return create(name, actorId);
+    }
+
+    @Transactional
     public CategoryView update(UUID id, String name, boolean active, UUID actorId) {
         validateName(name);
         var category = required(id);

@@ -1,5 +1,6 @@
 package com.centralservicos.identity;
 
+import com.centralservicos.TestUnits;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,7 +38,7 @@ class AdminUserListingTests {
         }
         var legacyOnly = insertUser("000 Legacy 1", "GUARDIAN");
         var mixed = insertUser("000 Legacy 2", "GUARDIAN");
-        jdbc.update("insert into user_role(user_id,role_name) values(?,?)", mixed.toString(), "AGENT");
+        grantUnitRole(mixed, "AGENT");
 
         var mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         mvc.perform(get("/api/v1/admin/users?page=0&size=20").with(user(admin)))
@@ -79,7 +80,16 @@ class AdminUserListingTests {
         jdbc.update("insert into user_account(id,email,display_name,password_hash,active,password_change_required,"
                         + "anonymized,created_at,updated_at) values(?,?,?,?,true,false,false,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                 id.toString(), id + "@example.test", name, "unused-test-hash");
-        jdbc.update("insert into user_role(user_id,role_name) values(?,?)", id.toString(), role);
+        if ("GUARDIAN".equals(role)) {
+            jdbc.update("insert into user_role(user_id,role_name) values(?,?)", id.toString(), role);
+        } else {
+            grantUnitRole(id, role);
+        }
         return id;
+    }
+
+    private void grantUnitRole(UUID userId, String role) {
+        jdbc.update("insert into unit_membership(user_id,unit_id,role_name) values(?,?,?)", userId.toString(),
+                TestUnits.DEFAULT_UNIT_ID.toString(), role);
     }
 }

@@ -1,0 +1,438 @@
+databaseChangeLog:
+- changeSet:
+    id: 017-multi-unit
+    author: service-desk-team
+    comment: Unidades escolares, vínculos por unidade e coluna unit_id nas tabelas de cada unidade.
+    changes:
+    - createTable:
+        tableName: school_unit
+        columns:
+        - column: { name: id, type: varchar(36), constraints: { primaryKey: true, nullable: false } }
+        - column: { name: code, type: varchar(8), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_unit_code } }
+        - column: { name: name, type: varchar(160), constraints: { nullable: false, unique: true, uniqueConstraintName: uk_unit_name } }
+        - column: { name: support_email, type: varchar(254) }
+        - column: { name: support_phone, type: varchar(40) }
+        - column: { name: active, type: boolean, defaultValueBoolean: true, constraints: { nullable: false } }
+        - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - column: { name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+        - column: { name: updated_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP, constraints: { nullable: false } }
+    - insert:
+        tableName: school_unit
+        columns:
+        - column: { name: id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+        - column: { name: code, value: SD }
+        - column: { name: name, value: Unidade principal }
+        - column: { name: active, valueBoolean: true }
+        - column: { name: row_version, valueNumeric: 0 }
+        - column: { name: created_at, valueComputed: CURRENT_TIMESTAMP }
+        - column: { name: updated_at, valueComputed: CURRENT_TIMESTAMP }
+    - sql:
+        sql: >-
+          UPDATE school_unit SET
+          name = (SELECT institution_name FROM app_settings WHERE id = 1),
+          support_email = (SELECT support_email FROM app_settings WHERE id = 1),
+          support_phone = (SELECT support_phone FROM app_settings WHERE id = 1)
+          WHERE id = '0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10' AND EXISTS (SELECT 1 FROM app_settings WHERE id = 1)
+    - createTable:
+        tableName: unit_membership
+        columns:
+        - column: { name: user_id, type: varchar(36), constraints: { nullable: false } }
+        - column: { name: unit_id, type: varchar(36), constraints: { nullable: false } }
+        - column: { name: role_name, type: varchar(32), constraints: { nullable: false } }
+    - addPrimaryKey:
+        tableName: unit_membership
+        columnNames: user_id, unit_id, role_name
+        constraintName: pk_unit_membership
+    - createIndex:
+        tableName: unit_membership
+        indexName: ix_unit_membership_unit
+        columns:
+        - column: { name: unit_id }
+        - column: { name: role_name }
+    - addForeignKeyConstraint:
+        baseTableName: unit_membership
+        baseColumnNames: user_id
+        referencedTableName: user_account
+        referencedColumnNames: id
+        constraintName: fk_unit_membership_user
+    - addForeignKeyConstraint:
+        baseTableName: unit_membership
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_unit_membership_unit
+    - sql:
+        sql: >-
+          INSERT INTO unit_membership (user_id, unit_id, role_name)
+          SELECT user_id, '0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10', role_name FROM user_role
+          WHERE role_name IN ('REQUESTER', 'AGENT', 'MANAGER')
+    - sql:
+        sql: DELETE FROM user_role WHERE role_name IN ('REQUESTER', 'AGENT', 'MANAGER')
+    - createTable:
+        tableName: unit_ticket_counter
+        columns:
+        - column: { name: unit_id, type: varchar(36), constraints: { nullable: false } }
+        - column: { name: counter_year, type: int, constraints: { nullable: false } }
+        - column: { name: next_value, type: bigint, constraints: { nullable: false } }
+        - column: { name: row_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+    - addPrimaryKey:
+        tableName: unit_ticket_counter
+        columnNames: unit_id, counter_year
+        constraintName: pk_unit_ticket_counter
+    - addForeignKeyConstraint:
+        baseTableName: unit_ticket_counter
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ticket_counter_unit
+    - sql:
+        sql: >-
+          INSERT INTO unit_ticket_counter (unit_id, counter_year, next_value, row_version)
+          SELECT '0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10', counter_year, next_value, row_version FROM ticket_counter
+    - dropTable:
+        tableName: ticket_counter
+    - addColumn:
+        tableName: category
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: category
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: category
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: category
+        indexName: ix_category_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: category
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_category_unit
+    - addColumn:
+        tableName: ticket
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ticket
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ticket
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ticket
+        indexName: ix_ticket_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ticket
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ticket_unit
+    - addColumn:
+        tableName: ticket_comment
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ticket_comment
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ticket_comment
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ticket_comment
+        indexName: ix_ticket_comment_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ticket_comment
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ticket_comment_unit
+    - addColumn:
+        tableName: attachment
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: attachment
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: attachment
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: attachment
+        indexName: ix_attachment_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: attachment
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_attachment_unit
+    - addColumn:
+        tableName: notification
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: notification
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: notification
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: notification
+        indexName: ix_notification_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: notification
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_notification_unit
+    - addColumn:
+        tableName: agenda_item
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: agenda_item
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: agenda_item
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: agenda_item
+        indexName: ix_agenda_item_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: agenda_item
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_agenda_item_unit
+    - addColumn:
+        tableName: agenda_occurrence
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: agenda_occurrence
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: agenda_occurrence
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: agenda_occurrence
+        indexName: ix_agenda_occ_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: agenda_occurrence
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_agenda_occ_unit
+    - addColumn:
+        tableName: ped_class
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ped_class
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ped_class
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ped_class
+        indexName: ix_ped_class_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ped_class
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ped_class_unit
+    - addColumn:
+        tableName: ped_planning
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ped_planning
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ped_planning
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ped_planning
+        indexName: ix_ped_planning_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ped_planning
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ped_planning_unit
+    - addColumn:
+        tableName: ped_record
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ped_record
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ped_record
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ped_record
+        indexName: ix_ped_record_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ped_record
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ped_record_unit
+    - addColumn:
+        tableName: ped_project
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ped_project
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ped_project
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ped_project
+        indexName: ix_ped_project_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ped_project
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ped_project_unit
+    - addColumn:
+        tableName: aee_student
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: aee_student
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: aee_student
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: aee_student
+        indexName: ix_aee_student_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: aee_student
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_aee_student_unit
+    - addColumn:
+        tableName: aee_document
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: aee_document
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: aee_document
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: aee_document
+        indexName: ix_aee_document_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: aee_document
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_aee_document_unit
+    - addColumn:
+        tableName: ped_photo_cleanup
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - update:
+        tableName: ped_photo_cleanup
+        columns:
+        - column: { name: unit_id, value: 0f5d8c2e-6a41-4b7e-9c1d-3e2a7b9f4d10 }
+    - addNotNullConstraint:
+        tableName: ped_photo_cleanup
+        columnName: unit_id
+        columnDataType: varchar(36)
+    - createIndex:
+        tableName: ped_photo_cleanup
+        indexName: ix_ped_cleanup_unit
+        columns:
+        - column: { name: unit_id }
+    - addForeignKeyConstraint:
+        baseTableName: ped_photo_cleanup
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_ped_cleanup_unit
+    - dropUniqueConstraint:
+        tableName: category
+        constraintName: uk_category_name
+    - addUniqueConstraint:
+        tableName: category
+        columnNames: unit_id, name
+        constraintName: uk_category_unit_name
+    - addColumn:
+        tableName: audit_event
+        columns:
+        - column: { name: unit_id, type: varchar(36) }
+    - createIndex:
+        tableName: audit_event
+        indexName: ix_audit_unit_created
+        columns:
+        - column: { name: unit_id }
+        - column: { name: created_at }
+    - addForeignKeyConstraint:
+        baseTableName: audit_event
+        baseColumnNames: unit_id
+        referencedTableName: school_unit
+        referencedColumnNames: id
+        constraintName: fk_audit_unit

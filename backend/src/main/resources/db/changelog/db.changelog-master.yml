@@ -31,3 +31,5 @@ databaseChangeLog:
       file: db/changelog/changes/015-aee-students.yml
   - include:
       file: db/changelog/changes/016-commitment-collaborator.yml
+  - include:
+      file: db/changelog/changes/017-multi-unit.yml

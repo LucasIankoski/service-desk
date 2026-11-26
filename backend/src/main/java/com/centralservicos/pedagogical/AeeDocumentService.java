@@ -1,5 +1,6 @@
 package com.centralservicos.pedagogical;
 
+import com.centralservicos.shared.TenantContext;
 import com.centralservicos.attachments.*;
 import com.centralservicos.audit.AuditService;
 import com.centralservicos.identity.AuthenticatedUser;
@@ -53,7 +54,7 @@ class AeeDocumentService {
         if (bytes.length<5||!new String(bytes,0,5,StandardCharsets.US_ASCII).equals("%PDF-")||!new Tika().detect(bytes).equals("application/pdf"))
             throw DomainException.unprocessable("A assinatura do arquivo não corresponde a um PDF.");
         var d=new AeeDocument(); d.studentId=studentId; d.filename=name; d.authorId=actor.id(); d.authorName=actor.displayName(); d.size=bytes.length;
-        d.storageKey="aee/"+studentId+"/"+d.id+".pdf";
+        d.storageKey="units/"+TenantContext.requiredUnitId()+"/aee/"+studentId+"/"+d.id+".pdf";
         cleanup.stage(List.of(d.storageKey));
         try { storage.store(d.storageKey,bytes); } catch(IOException e) { throw new DomainException(HttpStatus.INTERNAL_SERVER_ERROR,"Não foi possível salvar o PDF. Tente novamente."); }
         documents.saveAndFlush(d); audit.record(actor.id(),"AEE_DOCUMENT_CREATED","AeeDocument",d.id,null);
