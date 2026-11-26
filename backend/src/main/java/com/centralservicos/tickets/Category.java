@@ -6,6 +6,8 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 import java.util.UUID;
+import jakarta.persistence.Column;
+import org.hibernate.annotations.TenantId;
 
 @Entity
 @Table(name = "category")
@@ -13,6 +15,9 @@ class Category {
 
     @Id
     private UUID id;
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    private UUID unitId;
     private String name;
     private boolean active;
     private Instant createdAt;

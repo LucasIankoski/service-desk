@@ -2,7 +2,13 @@ openapi: 3.1.0
 info:
   title: Central de Serviços API
   version: 1.0.0
-  description: API REST da Central de Serviços v1. Instantes são UTC em ISO-8601; datas de ocorrências são datas civis da instituição.
+  description: >-
+    API REST da Central de Serviços v1. Instantes são UTC em ISO-8601; datas de ocorrências são datas civis da
+    instituição. Os dados operacionais pertencem a uma unidade escolar: envie a unidade ativa no cabeçalho
+    X-Unit-Id (ou no parâmetro unit, em links de download). Sem o cabeçalho, vale a única unidade do usuário;
+    com várias unidades disponíveis, rotas de unidade respondem 400 até que uma seja escolhida. Uma unidade sem
+    acesso responde 403. ADMIN acessa todas as unidades ativas; os demais perfis valem por unidade. Recursos de
+    outra unidade respondem 404.
 servers:
   - url: /api/v1
 security:
@@ -52,6 +58,11 @@ components:
       in: header
       name: X-XSRF-TOKEN
   parameters:
+    UnitId:
+      name: X-Unit-Id
+      in: header
+      description: Unidade ativa da requisição. Precisa estar entre as unidades do usuário em /auth/me.
+      schema: { type: string, format: uuid }
     Id:
       name: id
       in: path
@@ -415,26 +426,66 @@ components:
         smtp: { $ref: "#/components/schemas/SmtpSettings" }
         version: { type: integer, format: int64 }
         updatedAt: { type: string, format: date-time }
-    Me:
+    UnitAccess:
       type: object
-      required: [id, email, displayName, roles, passwordChangeRequired]
+      required: [id, code, name, roles]
       properties:
         id: { type: string, format: uuid }
-        email: { type: string, format: email }
-        displayName: { type: string }
+        code: { type: string }
+        name: { type: string }
+        roles:
+          description: Perfis do usuário nesta unidade, sem ADMIN.
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Role" }
+    UnitRoles:
+      type: object
+      required: [unitId, roles]
+      properties:
+        unitId: { type: string, format: uuid }
         roles:
           type: array
           uniqueItems: true
           items: { $ref: "#/components/schemas/Role" }
-        passwordChangeRequired: { type: boolean }
-    User:
+    Unit:
       type: object
-      required: [id, email, displayName, roles, active, passwordChangeRequired, anonymized, createdAt]
+      required: [id, code, name, active, version, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, pattern: "^[A-Z0-9]{2,8}$", description: Prefixo dos números de chamado. }
+        name: { type: string, maxLength: 160 }
+        supportEmail: { type: [string, "null"], format: email }
+        supportPhone: { type: [string, "null"], maxLength: 40 }
+        active: { type: boolean }
+        version: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+    Me:
+      type: object
+      required: [id, email, displayName, roles, passwordChangeRequired, admin, units]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
         roles:
+          description: Perfis efetivos na unidade ativa, com ADMIN incluído.
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Role" }
+        passwordChangeRequired: { type: boolean }
+        admin: { type: boolean, description: Administrador da rede, com acesso a todas as unidades ativas. }
+        activeUnitId: { type: [string, "null"], format: uuid, description: Vazio quando o usuário precisa escolher a unidade. }
+        units:
+          type: array
+          items: { $ref: "#/components/schemas/UnitAccess" }
+    User:
+      type: object
+      required: [id, email, displayName, roles, active, passwordChangeRequired, anonymized, createdAt, admin, units]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        roles:
+          description: Perfis efetivos na unidade ativa, com ADMIN incluído.
           type: array
           uniqueItems: true
           items: { $ref: "#/components/schemas/Role" }
@@ -442,6 +493,10 @@ components:
         passwordChangeRequired: { type: boolean }
         anonymized: { type: boolean }
         createdAt: { type: string, format: date-time }
+        admin: { type: boolean }
+        units:
+          type: array
+          items: { $ref: "#/components/schemas/UnitRoles" }
     Assignee:
       type: object
       required: [id, displayName]
@@ -653,6 +708,7 @@ components:
       required: [id, type, title, message, read, createdAt]
       properties:
         id: { type: string, format: uuid }
+        unitId: { type: string, format: uuid }
         ticketId: { type: [string, "null"], format: uuid }
         type: { $ref: "#/components/schemas/NotificationType" }
         title: { type: string }
@@ -665,6 +721,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         actorId: { type: [string, "null"], format: uuid }
+        unitId: { type: [string, "null"], format: uuid, description: Vazio para eventos da rede, como login. }
         action: { type: string }
         entityType: { type: string }
         entityId: { type: [string, "null"] }
@@ -1948,11 +2005,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, displayName, roles]
+              required: [email, displayName]
               properties:
                 email: { type: string, format: email }
                 displayName: { type: string, maxLength: 120 }
-                roles: { type: array, minItems: 1, uniqueItems: true, items: { $ref: "#/components/schemas/Role" } }
+                roles: { type: array, uniqueItems: true, items: { $ref: "#/components/schemas/Role" } }
+                admin: { type: boolean, description: Administrador da rede (todas as unidades). }
+                units:
+                  description: Perfis por unidade. Quando ausente, roles vale na unidade ativa e ADMIN é global.
+                  type: array
+                  items: { $ref: "#/components/schemas/UnitRoles" }
       responses:
         "200":
           description: Conta e senha temporária.
@@ -1971,11 +2033,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [displayName, roles, active]
+              required: [displayName, active]
               properties:
                 displayName: { type: string, maxLength: 120 }
-                roles: { type: array, minItems: 1, uniqueItems: true, items: { $ref: "#/components/schemas/Role" } }
+                roles: { type: array, uniqueItems: true, items: { $ref: "#/components/schemas/Role" } }
                 active: { type: boolean }
+                admin: { type: boolean, description: Administrador da rede (todas as unidades). }
+                units:
+                  description: Perfis por unidade. Quando ausente, roles vale na unidade ativa e ADMIN é global.
+                  type: array
+                  items: { $ref: "#/components/schemas/UnitRoles" }
       responses:
         "200":
           description: Conta atualizada.
@@ -2004,6 +2071,65 @@ paths:
       parameters: [{ $ref: "#/components/parameters/Id" }]
       responses:
         "204": { description: Conta anonimizada. }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/units:
+    get:
+      summary: Lista todas as unidades, ativas e inativas.
+      responses:
+        "200":
+          description: Unidades em ordem de nome.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Unit" } }
+    post:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Cria uma unidade e, opcionalmente, copia as categorias ativas de outra.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string, pattern: "^[A-Za-z0-9]{2,8}$" }
+                name: { type: string, maxLength: 160 }
+                supportEmail: { type: [string, "null"], format: email }
+                supportPhone: { type: [string, "null"], maxLength: 40 }
+                copyConfigurationFrom: { type: [string, "null"], format: uuid }
+      responses:
+        "200":
+          description: Unidade criada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Unit" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/units/{id}:
+    patch:
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      summary: Atualiza nome, contato e estado. O código não muda; ao menos uma unidade fica ativa.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, active, version]
+              properties:
+                name: { type: string, maxLength: 160 }
+                supportEmail: { type: [string, "null"], format: email }
+                supportPhone: { type: [string, "null"], maxLength: 40 }
+                active: { type: boolean }
+                version: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Unidade atualizada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Unit" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
   /admin/categories:
     get:

@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
+import org.hibernate.annotations.TenantId;
 
 @Entity
 @Table(name = "agenda_item")
@@ -26,6 +27,9 @@ class AgendaItem {
 
     @Id
     private UUID id;
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    private UUID unitId;
     @Enumerated(EnumType.STRING)
     private AgendaItemKind kindName;
     private String title;

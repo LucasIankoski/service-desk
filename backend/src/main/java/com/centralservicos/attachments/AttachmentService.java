@@ -1,5 +1,6 @@
 package com.centralservicos.attachments;
 
+import com.centralservicos.shared.TenantContext;
 import com.centralservicos.shared.DomainException;
 import com.centralservicos.shared.CommentVisibility;
 import org.apache.tika.Tika;
@@ -63,7 +64,7 @@ public class AttachmentService {
         for (MultipartFile file : safeFiles) {
             var inspected = inspect(file, perFileLimitMb, ALLOWED_MEDIA_BY_EXTENSION.keySet());
             var extension = extension(file.getOriginalFilename());
-            var key = key("tickets/" + ticketId, extension);
+            var key = key("units/" + TenantContext.requiredUnitId() + "/tickets/" + ticketId, extension);
             store(key, inspected.content());
             var attachment = repository.save(new Attachment(ticketId, commentId, uploaderId,
                     safeOriginalName(file.getOriginalFilename()), key, inspected.mediaType(),

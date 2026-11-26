@@ -15,6 +15,8 @@ class AuditEvent {
     @Id
     private UUID id;
     private UUID actorId;
+    /** Unidade em que a ação ocorreu; vazio para eventos da rede, como login. */
+    private UUID unitId;
     private String actionName;
     private String entityType;
     private String entityId;
@@ -25,10 +27,11 @@ class AuditEvent {
     protected AuditEvent() {
     }
 
-    AuditEvent(UUID actorId, String actionName, String entityType, String entityId, String detailsJson,
-               String correlationId) {
+    AuditEvent(UUID actorId, UUID unitId, String actionName, String entityType, String entityId,
+               String detailsJson, String correlationId) {
         this.id = UUID.randomUUID();
         this.actorId = actorId;
+        this.unitId = unitId;
         this.actionName = actionName;
         this.entityType = entityType;
         this.entityId = entityId;
@@ -38,6 +41,6 @@ class AuditEvent {
     }
 
     AuditView toView() {
-        return new AuditView(id, actorId, actionName, entityType, entityId, detailsJson, correlationId, createdAt);
+        return new AuditView(id, actorId, unitId, actionName, entityType, entityId, detailsJson, correlationId, createdAt);
     }
 }

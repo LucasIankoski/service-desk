@@ -96,6 +96,9 @@ class DatabaseCompatibilityIT {
 
         var jdbc = new JdbcTemplate(dataSource);
         assertThat(jdbc.queryForObject("select count(*) from app_settings", Integer.class)).isEqualTo(1);
+        var unitId = TestUnits.DEFAULT_UNIT_ID.toString();
+        assertThat(jdbc.queryForObject("select code from school_unit where id = ?", String.class, unitId))
+                .isEqualTo("SD");
 
         var requesterId = UUID.randomUUID().toString();
         var ticketId = UUID.randomUUID().toString();
@@ -111,15 +114,15 @@ class DatabaseCompatibilityIT {
                 "argon2id-placeholder", true, false, false);
         jdbc.update("""
                 insert into ticket
-                (id, public_number, requester_id, description, status_name)
-                values (?, ?, ?, ?, ?)
+                (id, public_number, requester_id, description, status_name, unit_id)
+                values (?, ?, ?, ?, ?, ?)
                 """, ticketId, publicNumber, requesterId,
-                "Portable schema smoke test", "OPEN");
+                "Portable schema smoke test", "OPEN", unitId);
         jdbc.update("""
                 insert into ticket_comment
-                (id, ticket_id, author_id, body, visibility_name)
-                values (?, ?, ?, ?, ?)
-                """, commentId, ticketId, requesterId, "Portable comment", "PUBLIC");
+                (id, ticket_id, author_id, body, visibility_name, unit_id)
+                values (?, ?, ?, ?, ?, ?)
+                """, commentId, ticketId, requesterId, "Portable comment", "PUBLIC", unitId);
 
         var joinedRows = jdbc.queryForObject("""
                 select count(*)
@@ -130,14 +133,15 @@ class DatabaseCompatibilityIT {
                 """, Integer.class, publicNumber);
         assertThat(joinedRows).isEqualTo(1);
 
-        jdbc.update("insert into user_role (user_id, role_name) values (?, ?)", requesterId, "MANAGER");
+        jdbc.update("insert into unit_membership (user_id, unit_id, role_name) values (?, ?, ?)",
+                requesterId, unitId, "MANAGER");
         jdbc.update("""
                 insert into agenda_item
-                (id, kind_name, title, location, start_at, end_at, all_day, created_by_id)
-                values (?, ?, ?, ?, ?, ?, ?, ?)
+                (id, kind_name, title, location, start_at, end_at, all_day, created_by_id, unit_id)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, agendaItemId, "INSTITUTION_EVENT", "Compatibility event", "Main room",
                 Timestamp.from(Instant.parse("2026-09-20T12:00:00Z")),
-                Timestamp.from(Instant.parse("2026-09-20T13:00:00Z")), false, requesterId);
+                Timestamp.from(Instant.parse("2026-09-20T13:00:00Z")), false, requesterId, unitId);
         var agendaRows = jdbc.queryForObject("""
                 select count(*)
                 from agenda_item a

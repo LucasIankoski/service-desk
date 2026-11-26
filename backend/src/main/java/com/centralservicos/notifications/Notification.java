@@ -16,6 +16,7 @@ class Notification {
     @Id
     private UUID id;
     private UUID userId;
+    private UUID unitId;
     private UUID ticketId;
     @Enumerated(EnumType.STRING)
     private NotificationType typeName;
@@ -27,9 +28,10 @@ class Notification {
     protected Notification() {
     }
 
-    Notification(UUID userId, UUID ticketId, NotificationType type, String title, String message) {
+    Notification(UUID userId, UUID unitId, UUID ticketId, NotificationType type, String title, String message) {
         this.id = UUID.randomUUID();
         this.userId = userId;
+        this.unitId = unitId;
         this.ticketId = ticketId;
         this.typeName = type;
         this.title = title;
@@ -47,6 +49,6 @@ class Notification {
     }
 
     NotificationView toView() {
-        return new NotificationView(id, ticketId, typeName, title, message, readAt != null, createdAt);
+        return new NotificationView(id, unitId, ticketId, typeName, title, message, readAt != null, createdAt);
     }
 }

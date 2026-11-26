@@ -2,10 +2,14 @@ package com.centralservicos.pedagogical;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.*;
+import org.hibernate.annotations.TenantId;
 @Entity
 @Table(name = "ped_class")
 class SchoolClass {
     @Id UUID id = UUID.randomUUID();
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    UUID unitId;
     String name;
     boolean archived;
     boolean aee;

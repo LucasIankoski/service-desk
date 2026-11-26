@@ -1,7 +1,9 @@
-import { BookOpen, Bell, CalendarDays, Camera, ListChecks, Home, LogOut, Plus, Settings, Ticket } from "lucide-react";
+import { BookOpen, Bell, Building2, CalendarDays, Camera, ListChecks, Home, LogOut, Plus, Settings, Ticket } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { logout } from "../api/auth";
+import { setActiveUnit } from "../api/http";
+import type { UnitAccess } from "../api/types";
 import { listNotifications, markAllNotificationsRead, unreadNotificationCount } from "../api/notifications";
 import { useSession, isUnauthorized } from "../hooks/useSession";
 import { usePublicSettings } from "../app/PublicSettingsContext";
@@ -42,6 +44,13 @@ export function AppShell() {
   if (session.data.passwordChangeRequired && location.pathname !== "/change-password") {
     return <Navigate to="/change-password" replace />;
   }
+  const units = session.data.units;
+  if (units && !session.data.activeUnitId && !session.data.passwordChangeRequired) {
+    return <UnitPicker units={units} onSignOut={() => signOut.mutate()} />;
+  }
+  // Com uma unidade só, o topo continua mostrando a instituição, como antes da 017.
+  const activeUnit = units && units.length > 1 ? units.find((unit) => unit.id === session.data.activeUnitId) : undefined;
+  const unitCodes = new Map(units?.map((unit) => [unit.id, unit.code]));
 
   const canAdmin = session.data.roles.includes("ADMIN");
   const canPedagogical = session.data.roles.some(role => ["ADMIN", "MANAGER", "REQUESTER"].includes(role));
@@ -69,9 +78,18 @@ export function AppShell() {
         <header className={styles.topbar}>
           <div>
             <span className={styles.kicker}>Central de Serviços</span>
-            <h1>{settings?.institutionName ?? "Atendimento interno"}</h1>
+            <h1>{activeUnit?.name ?? settings?.institutionName ?? "Atendimento interno"}</h1>
           </div>
           <div className={styles.topActions}>
+            {units && units.length > 1 ? (
+              <label className={styles.unitSwitcher}>
+                <Building2 aria-hidden="true" />
+                <span className={styles.srOnly}>Unidade</span>
+                <select value={session.data.activeUnitId ?? ""} onChange={(event) => switchUnit(event.target.value)}>
+                  {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+                </select>
+              </label>
+            ) : null}
             <details className={styles.notifications}>
               <summary aria-label="Abrir notificações">
                 <Bell />
@@ -84,6 +102,9 @@ export function AppShell() {
                 </div>
                 {notices.data?.content.length ? notices.data.content.map((notice) => (
                   <article key={notice.id} className={notice.read ? styles.notice : styles.noticeUnread}>
+                    {units && units.length > 1 && notice.unitId ? (
+                      <span className={styles.noticeUnit}>{unitCodes.get(notice.unitId) ?? ""}</span>
+                    ) : null}
                     <strong>{notice.title}</strong>
                     <p>{notice.message}</p>
                   </article>
@@ -110,6 +131,34 @@ export function AppShell() {
         {canAdmin ? <NavItem to="/admin" icon={<Settings />} label="Admin" /> : null}
       </nav>
     </div>
+  );
+}
+
+/** Troca a unidade desta aba e recarrega, para que nenhum dado da unidade anterior fique em tela. */
+function switchUnit(unitId: string) {
+  setActiveUnit(unitId);
+  window.location.assign("/tickets");
+}
+
+function UnitPicker({ units, onSignOut }: { units: UnitAccess[]; onSignOut: () => void }) {
+  return (
+    <main className={styles.unitPicker}>
+      <section className={styles.unitPanel} aria-labelledby="unit-picker-title">
+        <h1 id="unit-picker-title">{units.length ? "Escolha a unidade" : "Nenhuma unidade disponível"}</h1>
+        {units.length ? (
+          <div className={styles.unitChoices}>
+            {units.map((unit) => (
+              <Button key={unit.id} icon={<Building2 />} onClick={() => switchUnit(unit.id)}>
+                {unit.name}
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <p>Sua conta não está vinculada a nenhuma unidade ativa. Procure o administrador.</p>
+        )}
+        <Button variant="ghost" icon={<LogOut />} onClick={onSignOut}>Sair</Button>
+      </section>
+    </main>
   );
 }
 

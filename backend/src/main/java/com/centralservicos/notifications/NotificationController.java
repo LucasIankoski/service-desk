@@ -1,6 +1,7 @@
 package com.centralservicos.notifications;
 
 import com.centralservicos.identity.CurrentUser;
+import com.centralservicos.identity.IdentityService;
 import com.centralservicos.shared.PageResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,20 +21,26 @@ class NotificationController {
 
     private final NotificationService notifications;
     private final CurrentUser currentUser;
+    private final IdentityService identity;
 
-    NotificationController(NotificationService notifications, CurrentUser currentUser) {
+    NotificationController(NotificationService notifications, CurrentUser currentUser, IdentityService identity) {
         this.notifications = notifications;
         this.currentUser = currentUser;
+        this.identity = identity;
+    }
+
+    private java.util.Set<UUID> units() {
+        return identity.accessibleUnitIds(currentUser.id());
     }
 
     @GetMapping
     PageResponse<NotificationView> list(Pageable pageable) {
-        return PageResponse.from(notifications.list(currentUser.id(), pageable));
+        return PageResponse.from(notifications.list(currentUser.id(), units(), pageable));
     }
 
     @GetMapping("/unread-count")
     Map<String, Long> unreadCount() {
-        return Map.of("count", notifications.unreadCount(currentUser.id()));
+        return Map.of("count", notifications.unreadCount(currentUser.id(), units()));
     }
 
     @PatchMapping("/{id}/read")
@@ -45,6 +52,6 @@ class NotificationController {
     @PatchMapping("/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void markAllRead() {
-        notifications.markAllRead(currentUser.id());
+        notifications.markAllRead(currentUser.id(), units());
     }
 }

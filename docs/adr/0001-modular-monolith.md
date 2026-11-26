@@ -9,3 +9,5 @@ Usar um único deploy Spring Boot organizado em módulos funcionais verificados 
 ## Motivo
 
 A v1 possui uma única instituição, fila e banco. Separar processos agora aumentaria autenticação distribuída, observabilidade e consistência sem criar uma seam real. Interfaces de anexos e criptografia permanecem substituíveis.
+
+> Atualizado pelo [ADR 0008](0008-multi-unidade.md): a instalação passou a atender várias unidades escolares.

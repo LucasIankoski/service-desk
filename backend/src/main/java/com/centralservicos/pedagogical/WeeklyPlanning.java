@@ -2,10 +2,14 @@ package com.centralservicos.pedagogical;
 import jakarta.persistence.*;
 import java.time.*;
 import java.util.*;
+import org.hibernate.annotations.TenantId;
 @Entity
 @Table(name = "ped_planning")
 class WeeklyPlanning {
     @Id UUID id = UUID.randomUUID();
+    @TenantId
+    @Column(name = "unit_id", nullable = false, updatable = false)
+    UUID unitId;
     UUID classId;
     UUID studentId;
     String scopeType = "CLASS";

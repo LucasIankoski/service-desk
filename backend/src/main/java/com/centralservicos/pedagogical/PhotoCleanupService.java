@@ -2,7 +2,6 @@ package com.centralservicos.pedagogical;
 
 import com.centralservicos.attachments.AttachmentStorage;
 import org.springframework.stereotype.Service;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.*;
 import java.io.IOException;
 import java.time.Instant;
@@ -30,7 +29,7 @@ class PhotoCleanupService {
     }
     @Transactional
     public void removedKey(String key) { queue.save(new PhotoCleanup(key, Instant.now())); }
-    @Scheduled(fixedDelayString = "${app.photo-cleanup-delay-ms:60000}")
+    /** Processa a fila de todas as unidades; o agendamento fica em {@link PhotoCleanupScheduler}. */
     @Transactional
     public void clean() {
         for (var entry : queue.findTop100ByEligibleAtBeforeOrderByEligibleAtAsc(Instant.now())) {

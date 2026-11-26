@@ -7,11 +7,13 @@ import com.centralservicos.audit.AuditService;
 import com.centralservicos.identity.AuthenticatedUser;
 import com.centralservicos.identity.IdentityService;
 import com.centralservicos.identity.Role;
+import com.centralservicos.identity.UnitService;
 import com.centralservicos.notifications.NotificationService;
 import com.centralservicos.notifications.NotificationType;
 import com.centralservicos.settings.SettingsService;
 import com.centralservicos.shared.CommentVisibility;
 import com.centralservicos.shared.DomainException;
+import com.centralservicos.shared.TenantContext;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,10 +48,12 @@ public class TicketService {
     private final NotificationService notifications;
     private final IdentityService identity;
     private final AuditService audit;
+    private final UnitService units;
 
     TicketService(TicketRepository tickets, TicketCounterRepository counters, TicketCommentRepository comments,
                   CategoryService categories, AttachmentService attachments, SettingsService settings,
-                  NotificationService notifications, IdentityService identity, AuditService audit) {
+                  NotificationService notifications, IdentityService identity, AuditService audit,
+                  UnitService units) {
         this.tickets = tickets;
         this.counters = counters;
         this.comments = comments;
@@ -59,6 +63,7 @@ public class TicketService {
         this.notifications = notifications;
         this.identity = identity;
         this.audit = audit;
+        this.units = units;
     }
 
     @Transactional(readOnly = true)
@@ -176,10 +181,13 @@ public class TicketService {
         return toDetail(ticket, actor);
     }
 
+    /** Número por unidade, prefixado pelo código dela. A unidade inicial usa SD e mantém o formato anterior. */
     private String nextPublicNumber() {
+        var unitId = TenantContext.requiredUnitId();
         var year = Year.now(settings.ticketPolicy().zoneId()).getValue();
-        var counter = counters.lockByYear(year).orElseGet(() -> counters.saveAndFlush(new TicketCounter(year)));
-        return "SD-%04d-%06d".formatted(year, counter.next());
+        var counter = counters.lock(unitId, year)
+                .orElseGet(() -> counters.saveAndFlush(new TicketCounter(unitId, year)));
+        return "%s-%04d-%06d".formatted(units.code(unitId), year, counter.next());
     }
 
     private void validateText(String description) {

@@ -1,23 +1,27 @@
 import { SchoolLogoSettings } from "../components/SchoolLogoSettings";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, KeyRound, MailCheck, Palette, Plus, RotateCcw, Shield, Users } from "lucide-react";
+import { Building2, CheckCircle, KeyRound, MailCheck, Palette, Plus, RotateCcw, Shield, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate } from "react-router";
 import {
   createCategory,
+  createUnit,
   createUser,
   anonymizeUser,
   listAdminCategories,
+  listUnits,
   listUsers,
   resetTemporaryPassword,
   updateCategory,
+  updateUnit,
   updateUser
 } from "../api/admin";
+import type { UserAccessInput } from "../api/admin";
 import { listAuditEvents } from "../api/audit";
 import { getAdminSettings, previewTheme, testSmtp, updateGeneralSettings, updateLoginBackground, updateSmtp, updateTheme } from "../api/settings";
-import type { Role, Theme, User } from "../api/types";
+import type { Role, Theme, Unit, User } from "../api/types";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Field, SelectInput, TextInput } from "../components/FormField";
@@ -25,6 +29,7 @@ import styles from "./AdminPage.module.css";
 import { useSession } from "../hooks/useSession";
 
 const allRoles: Role[] = ["REQUESTER", "AGENT", "MANAGER", "ADMIN"];
+const unitRoles: Role[] = ["REQUESTER", "AGENT", "MANAGER"];
 const roleLabels: Record<Role, string> = {
   REQUESTER: "Solicitante",
   AGENT: "Atendente",
@@ -46,6 +51,7 @@ export default function AdminPage() {
       <Tabs.Root defaultValue="users" className={styles.tabs}>
         <Tabs.List className={styles.tabList} aria-label="Áreas administrativas">
           <Tabs.Trigger value="users"><Users /> Usuários</Tabs.Trigger>
+          <Tabs.Trigger value="units"><Building2 /> Unidades</Tabs.Trigger>
           <Tabs.Trigger value="categories"><Shield /> Categorias</Tabs.Trigger>
           <Tabs.Trigger value="general"><CheckCircle /> Geral</Tabs.Trigger>
           <Tabs.Trigger value="theme"><Palette /> Tema</Tabs.Trigger>
@@ -53,6 +59,7 @@ export default function AdminPage() {
           <Tabs.Trigger value="audit"><KeyRound /> Auditoria</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="users"><UsersTab /></Tabs.Content>
+        <Tabs.Content value="units"><UnitsTab /></Tabs.Content>
         <Tabs.Content value="categories"><CategoriesTab /></Tabs.Content>
         <Tabs.Content value="general"><GeneralTab /></Tabs.Content>
         <Tabs.Content value="theme"><ThemeTab /><div className={styles.panel}><SchoolLogoSettings /></div></Tabs.Content>
@@ -63,8 +70,16 @@ export default function AdminPage() {
   );
 }
 
+/** Unidades cadastradas; sem elas (API antiga), a tela usa os perfis da unidade ativa. */
+function useKnownUnits() {
+  const units = useQuery({ queryKey: ["admin-units"], queryFn: listUnits });
+  return Array.isArray(units.data) && units.data.length ? units.data : null;
+}
+
 function UsersTab() {
   const queryClient = useQueryClient();
+  const session = useSession();
+  const knownUnits = useKnownUnits();
   const [page, setPage] = useState(0);
   const users = useQuery({ queryKey: ["admin-users", page], queryFn: () => listUsers(page) });
   const lastPage = users.data ? Math.max(0, users.data.totalPages - 1) : page;
@@ -85,7 +100,7 @@ function UsersTab() {
     onSuccess: (result) => setTemporaryPassword(result.temporaryPassword)
   });
   const update = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: { displayName: string; roles: Role[]; active: boolean } }) =>
+    mutationFn: ({ id, input }: { id: string; input: UserInput }) =>
       updateUser(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] })
   });
@@ -97,12 +112,10 @@ function UsersTab() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const roles = allRoles.filter((role) => form.get(role));
-    create.mutate({
-      email: String(form.get("email")),
-      displayName: String(form.get("displayName")),
-      roles
-    });
+    const identity = { email: String(form.get("email")), displayName: String(form.get("displayName")) };
+    create.mutate(knownUnits
+      ? { ...identity, ...readAccess(form, knownUnits) }
+      : { ...identity, roles: allRoles.filter((role) => form.get(role)) });
     event.currentTarget.reset();
   }
 
@@ -115,11 +128,17 @@ function UsersTab() {
         <Field label="E-mail">
           <TextInput name="email" type="email" required />
         </Field>
-        <div className={styles.checkGrid} aria-label="Perfis">
-          {allRoles.map((role) => (
-            <label key={role}><input type="checkbox" name={role} defaultChecked={role === "REQUESTER"} /> {roleLabels[role]}</label>
-          ))}
-        </div>
+        {knownUnits ? (
+          <div className={styles.checkGrid}>
+            <AccessFields units={knownUnits} defaultUnitId={session.data?.activeUnitId ?? knownUnits[0].id} />
+          </div>
+        ) : (
+          <div className={styles.checkGrid} aria-label="Perfis">
+            {allRoles.map((role) => (
+              <label key={role}><input type="checkbox" name={role} defaultChecked={role === "REQUESTER"} /> {roleLabels[role]}</label>
+            ))}
+          </div>
+        )}
         <Button type="submit" variant="primary" icon={<Plus />}>Criar usuário</Button>
       </form>
       {temporaryPassword ? <p className={styles.secret}>Senha temporária: <code>{temporaryPassword}</code></p> : null}
@@ -137,6 +156,7 @@ function UsersTab() {
           <UserEditor
             key={user.id}
             user={user}
+            units={knownUnits}
             pending={update.isPending || reset.isPending || anonymize.isPending}
             onSave={(input) => update.mutate({ id: user.id, input })}
             onReset={() => reset.mutate(user.id)}
@@ -172,16 +192,63 @@ function UsersTab() {
   );
 }
 
+type UserInput = { displayName: string; roles?: Role[]; active: boolean } & Partial<UserAccessInput>;
+
+/** ADMIN vale para a rede inteira; os demais perfis são marcados em cada unidade. */
+function AccessFields({ units, user, defaultUnitId }: { units: Unit[]; user?: User; defaultUnitId?: string | null }) {
+  const prefix = user?.id ?? "new";
+  return (
+    <div className={styles.accessEditor}>
+      <label className={styles.adminToggle}>
+        <input type="checkbox" name="admin" defaultChecked={user?.admin ?? false} />
+        Administrador (todas as unidades)
+      </label>
+      {units.map((unit) => {
+        const current: Role[] = user
+          ? user.units?.find((entry) => entry.unitId === unit.id)?.roles ?? []
+          : unit.id === defaultUnitId ? ["REQUESTER"] : [];
+        return (
+          <fieldset key={unit.id} className={styles.unitRoles}>
+            <legend>{unit.name}{unit.active ? "" : " (inativa)"}</legend>
+            {unitRoles.map((role) => (
+              <label key={role} htmlFor={`${prefix}-${unit.id}-${role}`}>
+                <input
+                  id={`${prefix}-${unit.id}-${role}`}
+                  type="checkbox"
+                  name={`unit:${unit.id}:${role}`}
+                  defaultChecked={current.includes(role)}
+                />
+                {roleLabels[role]}
+              </label>
+            ))}
+          </fieldset>
+        );
+      })}
+    </div>
+  );
+}
+
+function readAccess(form: FormData, units: Unit[]): UserAccessInput {
+  return {
+    admin: form.get("admin") === "on",
+    units: units
+      .map((unit) => ({ unitId: unit.id, roles: unitRoles.filter((role) => form.get(`unit:${unit.id}:${role}`)) }))
+      .filter((entry) => entry.roles.length > 0)
+  };
+}
+
 function UserEditor({
   user,
+  units,
   pending,
   onSave,
   onReset,
   onAnonymize
 }: {
   user: User;
+  units: Unit[] | null;
   pending: boolean;
-  onSave: (input: { displayName: string; roles: Role[]; active: boolean }) => void;
+  onSave: (input: UserInput) => void;
   onReset: () => void;
   onAnonymize: () => void;
 }) {
@@ -189,18 +256,17 @@ function UserEditor({
     <form className={styles.userRow} onSubmit={(event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      onSave({
-        displayName: String(form.get("displayName")),
-        roles: allRoles.filter((role) => form.get(role)),
-        active: form.get("active") === "on"
-      });
+      const profile = { displayName: String(form.get("displayName")), active: form.get("active") === "on" };
+      onSave(units
+        ? { ...profile, ...readAccess(form, units) }
+        : { ...profile, roles: allRoles.filter((role) => form.get(role)) });
     }}>
       <div className={styles.userIdentity}>
         <TextInput name="displayName" defaultValue={user.displayName} required maxLength={120} />
         <span>{user.email}</span>
       </div>
       <div className={styles.roleEditor} aria-label={`Perfis de ${user.displayName}`}>
-        {allRoles.map((role) => (
+        {units ? <AccessFields units={units} user={user} /> : allRoles.map((role) => (
           <label key={role}>
             <input type="checkbox" name={role} defaultChecked={user.roles.includes(role)} />
             {roleLabels[role]}
@@ -216,6 +282,86 @@ function UserEditor({
         ) : null}
       </div>
     </form>
+  );
+}
+
+function UnitsTab() {
+  const queryClient = useQueryClient();
+  const session = useSession();
+  const units = useQuery({ queryKey: ["admin-units"], queryFn: listUnits });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-units"] });
+    queryClient.invalidateQueries({ queryKey: ["me"] });
+  };
+  const create = useMutation({ mutationFn: createUnit, onSuccess: refresh });
+  const update = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateUnit>[1] }) => updateUnit(id, input),
+    onSuccess: refresh
+  });
+  const activeUnit = session.data?.units?.find((unit) => unit.id === session.data?.activeUnitId);
+
+  return (
+    <div className={styles.panel}>
+      <form className={styles.adminForm} onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        create.mutate({
+          code: String(form.get("code")).trim().toUpperCase(),
+          name: String(form.get("name")),
+          supportEmail: String(form.get("supportEmail")),
+          supportPhone: String(form.get("supportPhone")),
+          copyConfigurationFrom: form.get("copyCategories") === "on" ? activeUnit?.id ?? null : null
+        });
+        event.currentTarget.reset();
+      }}>
+        <Field label="Nome da unidade"><TextInput name="name" required maxLength={160} /></Field>
+        <Field label="Código dos chamados">
+          <TextInput name="code" required minLength={2} maxLength={8} pattern="[A-Za-z0-9]{2,8}"
+            title="De 2 a 8 letras ou números" />
+        </Field>
+        <Field label="E-mail de contato"><TextInput name="supportEmail" type="email" maxLength={254} /></Field>
+        <Field label="Telefone de contato"><TextInput name="supportPhone" maxLength={40} /></Field>
+        {activeUnit ? (
+          <div className={styles.checkGrid}>
+            <label><input type="checkbox" name="copyCategories" defaultChecked /> Copiar as categorias de {activeUnit.name}</label>
+          </div>
+        ) : null}
+        <Button type="submit" variant="primary" icon={<Plus />} disabled={create.isPending}>Criar unidade</Button>
+      </form>
+      <p className={styles.state}>
+        O código aparece no número dos chamados (por exemplo, SD-2026-000001) e não pode ser alterado depois.
+      </p>
+      {units.isLoading ? <p className={styles.state} role="status">Carregando unidades.</p> : null}
+      {units.error ? <p className={styles.error} role="alert">{units.error.message}</p> : null}
+      <div className={styles.table}>
+        {Array.isArray(units.data) ? units.data.map((unit) => (
+          <form key={`${unit.id}-${unit.version}`} className={styles.unitRow} onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            update.mutate({ id: unit.id, input: {
+              name: String(form.get("name")),
+              supportEmail: String(form.get("supportEmail")),
+              supportPhone: String(form.get("supportPhone")),
+              active: form.get("active") === "on",
+              version: unit.version
+            } });
+          }}>
+            <Badge tone={unit.active ? "teal" : "neutral"}>{unit.code}</Badge>
+            <TextInput name="name" defaultValue={unit.name} required maxLength={160}
+              aria-label={`Nome da unidade ${unit.code}`} />
+            <TextInput name="supportEmail" type="email" defaultValue={unit.supportEmail ?? ""} maxLength={254}
+              placeholder="E-mail de contato" aria-label={`E-mail de contato da unidade ${unit.code}`} />
+            <TextInput name="supportPhone" defaultValue={unit.supportPhone ?? ""} maxLength={40}
+              placeholder="Telefone" aria-label={`Telefone da unidade ${unit.code}`} />
+            <label className={styles.toggle}><input type="checkbox" name="active" defaultChecked={unit.active} /> Ativa</label>
+            <Button type="submit" disabled={update.isPending}>Salvar</Button>
+          </form>
+        )) : null}
+      </div>
+      {create.error || update.error ? (
+        <p className={styles.error} role="alert">{(create.error ?? update.error)?.message}</p>
+      ) : null}
+    </div>
   );
 }
 
